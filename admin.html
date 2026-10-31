@@ -77,7 +77,7 @@ td{padding:14px 16px;border-top:1px solid var(--linea);vertical-align:middle}
 .borrar{width:42px;height:42px;border-radius:8px;border:none;background:var(--suave);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
 .borrar.confirmar{background:var(--rojo);color:#fff;width:auto;padding:0 12px}
 .etq{font-size:12px;color:var(--gris)}
-@media (max-width:760px){.editor{flex-direction:column}.cats{position:static;flex:none;width:100%;flex-direction:row;overflow-x:auto}.cats button{flex:none;gap:8px}.cats .nueva{margin:0}}
+@media (max-width:760px){.editor{flex-direction:column}.cats{position:static;flex:none;width:100%;flex-direction:row;overflow-x:auto}.cats button{flex:none;gap:8px}.cats .nueva{margin:0}.lado{flex-direction:row;align-items:center;justify-content:space-between;width:100%}}
 /* Publicado */
 .dos{display:flex;gap:20px;flex-wrap:wrap}
 .dos>section{flex:1 1 340px;display:flex;flex-direction:column;gap:16px}
@@ -321,7 +321,7 @@ function pintarProductos(){
       <div class="datos">
         <div class="linea">
           <label class="mini" style="flex:1 1 200px">Nombre<input data-campo="nombre" value="${esc(x.nombre)}" maxlength="80"></label>
-          <label class="mini precio" style="flex:0 0 120px">Precio (€)<input data-campo="precio" inputmode="decimal" value="${Number(x.precio) > 0 ? String(x.precio).replace('.', ',') : ''}" placeholder="0,00" class="${Number(x.precio) > 0 ? '' : 'falta'}">
+          <label class="mini precio" style="flex:0 0 120px">Precio (€)<input data-campo="precio" inputmode="decimal" value="${Number(x.precio) > 0 ? Number(x.precio).toFixed(2).replace('.', ',') : ''}" placeholder="0,00" class="${Number(x.precio) > 0 ? '' : 'falta'}">
             ${Number(x.precio) > 0 ? '' : '<span class="error" style="font-size:12px">Falta precio</span>'}</label>
         </div>
         <label class="mini">Descripción<textarea data-campo="descripcion" rows="1" maxlength="200" placeholder="Qué lleva">${esc(x.descripcion || '')}</textarea></label>
@@ -357,7 +357,7 @@ async function guardarCampo(prod, el){
   } else if (campo === 'precio') {
     const v = el.value.trim().replace('€','').replace(',', '.');
     const num = v === '' ? 0 : Number(v);
-    if (!isFinite(num) || num < 0 || num > 999) { aviso('Precio no válido'); el.value = Number(prod.precio) > 0 ? String(prod.precio).replace('.', ',') : ''; return; }
+    if (!isFinite(num) || num < 0 || num > 999) { aviso('Precio no válido'); el.value = Number(prod.precio) > 0 ? Number(prod.precio).toFixed(2).replace('.', ',') : ''; return; }
     cambio.precio = Math.round(num * 100) / 100;
   } else if (campo === 'disponible') cambio.disponible = el.checked;
   else if (campo === 'nombre') { if (!el.value.trim()) { el.value = prod.nombre; return aviso('El nombre no puede quedar vacío'); } cambio.nombre = el.value.trim(); }
