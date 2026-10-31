@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--g:#545454;--b:#E8E8E8;--s:#F3F3F3;--v:#0B7A3E;--r:#B42318}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#000;background:#fff;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+h1{margin:0;font-size:26px;letter-spacing:-.02em}
+.wrap{max-width:720px;margin:0 auto;padding-bottom:110px}
+.cover{height:170px;background:#EEE center/cover no-repeat}
+.info{padding:16px}
+.muted{color:var(--g);font-size:14px;margin:4px 0 0}
+.note{display:flex;align-items:center;gap:8px;color:#000;font-size:14px;margin:0}
+.notes{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--s)}
+.lnk{border:0;background:none;padding:0;text-decoration:underline;color:#000;font-size:14px;cursor:pointer}
+.h2{font-size:20px;font-weight:700;margin:0}
+.dest{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scrollbar-width:none}
+.dcard{flex:none;width:150px;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+.ph{position:relative;display:block;background:#EEE center/cover no-repeat;border-radius:12px}
+.plus{position:absolute;right:8px;bottom:8px;min-width:34px;height:34px;padding:0 8px;border-radius:17px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.18);font-weight:700}
+.tabs{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:22px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-top:18px}
+.tabs a{flex:none;padding:13px 0 10px;border-bottom:3px solid transparent;color:#000;text-decoration:none;font-size:15px}
+.tabs a.on{border-color:#000;font-weight:600}
+section.cat{padding:22px 16px 0;scroll-margin-top:52px}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.item{display:flex;min-height:112px;border:1px solid var(--b);border-radius:12px;overflow:hidden;background:#fff;padding:0;text-align:left;cursor:pointer;width:100%}
+.item .t{flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;gap:4px}
+.item .ph{width:112px;flex:none;border-radius:0}
+.item.off{background:#FAFAFA;cursor:default}
+.item.off .name,.item.off .price{color:#6B6B6B}
+.name{font-size:16px;font-weight:500}
+.price{font-size:14px;color:var(--g)}
+.desc{font-size:13px;color:var(--g);line-height:1.35}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--b);z-index:10}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;max-width:688px;margin:0 auto;height:54px;border-radius:8px;border:0;background:#000;color:#fff;font-size:16px;font-weight:600;cursor:pointer;gap:10px}
+.btn.split{justify-content:space-between;padding:0 18px}
+.badge{min-width:24px;height:24px;border-radius:12px;background:#fff;color:#000;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;padding:0 6px}
+.sheet{position:fixed;inset:0;z-index:20;background:#fff;overflow-y:auto;display:none}
+.sheet.open{display:block}
+#alerg{z-index:30}
+.inner{max-width:720px;margin:0 auto;padding-bottom:150px}
+.close{position:absolute;left:16px;top:16px;width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);font-size:18px;cursor:pointer}
+.sep{height:8px;background:var(--s);margin:16px -16px}
+.opt{display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:1px solid var(--b);font-size:16px;cursor:pointer}
+.opt input{width:22px;height:22px;accent-color:#000;margin:0}
+.pill{padding:4px 10px;border-radius:999px;background:var(--s);font-size:13px;font-weight:500;white-space:nowrap}
+.pill.err{background:#FDECEA;color:var(--r)}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;margin-top:12px}
+.field input{height:50px;border:0;border-radius:8px;background:var(--s);padding:0 14px;font-size:16px;font-weight:400}
+.qty{display:flex;align-items:center;background:var(--s);border-radius:999px;padding:3px;flex:none}
+.qty button{width:40px;height:40px;border:0;background:none;border-radius:50%;font-size:20px;cursor:pointer}
+.qty span{min-width:18px;text-align:center;font-weight:600}
+.del{width:40px;height:40px;border:0;border-radius:50%;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;color:#000}
+.foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--b);padding:12px 16px calc(16px + env(safe-area-inset-bottom))}
+.foot .row{max-width:688px;margin:0 auto;display:flex;gap:12px;align-items:center}
+.line{display:flex;gap:10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--b)}
+.line .ph{width:56px;height:56px;border-radius:8px;flex:none}
+.err{color:var(--r);font-size:13px;font-weight:500;margin:8px 0 0}
+.top{display:flex;align-items:center;gap:8px;padding:14px 12px 6px}
+.back{width:44px;height:44px;border:0;background:none;font-size:26px;cursor:pointer;flex:none}
+.state{padding:60px 20px;text-align:center;color:var(--g)}
+.tabla{width:100%;border-collapse:collapse;font-size:14px;margin-top:12px}
+.tabla td{padding:10px 0;border-bottom:1px solid var(--b);vertical-align:top}
+.tabla td+td{padding-left:12px;color:var(--g)}
+.grid14{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:14px;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="app"><p class="state">Cargando carta…</p></div>
+<div id="ficha" class="sheet" role="dialog" aria-modal="true" aria-label="Producto"></div>
+<div id="pedido" class="sheet" role="dialog" aria-modal="true" aria-label="Tu pedido"></div>
+<div id="alerg" class="sheet" role="dialog" aria-modal="true" aria-label="Alérgenos"></div>
+<div id="bar" class="bar" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
+const slug = location.pathname.split('/').filter(Boolean)[0] || 'kebab-jr';
+const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const img = u => u ? `background-image:url('${esc(u)}')` : '';
+const ALERGENOS = ['Gluten', 'Crustáceos', 'Huevos', 'Pescado', 'Cacahuetes', 'Soja', 'Lácteos', 'Frutos de cáscara', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces', 'Moluscos'];
+const ICO_BOLSA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>';
+const ICO_AVISO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>';
+const ICO_BORRAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+const $ = id => document.getElementById(id);
+let N, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], cart = [];
+const KEY = 'carrito-' + slug;
+try { cart = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { cart = []; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {} };
+const abiertas = () => document.querySelectorAll('.sheet.open').length;
+const lock = () => { document.body.style.overflow = abiertas() ? 'hidden' : ''; };
+
+async function load() {
+  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion').eq('slug', slug).eq('activo', true).maybeSingle();
+  if (error || !n) { $('app').innerHTML = '<p class="state">Esta carta no está disponible.</p>'; return; }
+  N = n; document.title = n.nombre + ' · Carta';
+  const [c, p, g, o] = await Promise.all([
+    sb.from('categorias').select('*').eq('negocio_id', n.id).eq('activa', true).order('orden'),
+    sb.from('productos').select('*').eq('negocio_id', n.id).order('orden'),
+    sb.from('grupos_opciones').select('*').eq('negocio_id', n.id).order('orden'),
+    sb.from('opciones').select('*').eq('negocio_id', n.id).eq('disponible', true).order('orden')
+  ]);
+  CATS = c.data || []; PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
+  const orden = Object.fromEntries(CATS.map(c => [c.id, c.orden]));
+  PRODS.sort((a, b) => (orden[a.categoria_id] ?? 99) - (orden[b.categoria_id] ?? 99) || a.orden - b.orden);
+  cart = cart.filter(l => PRODS.some(x => x.id === l.pid && x.disponible));
+  render(); bar();
+}
+
+function render() {
+  const cats = CATS.filter(c => PRODS.some(p => p.categoria_id === c.id));
+  const dest = ['Menús', 'Platos', 'Tacos'].map(nm => { const c = cats.find(x => x.nombre === nm); return c && PRODS.find(p => p.categoria_id === c.id && p.disponible); }).filter(Boolean);
+  const portada = (PRODS.find(p => p.foto_url) || {}).foto_url;
+  $('app').innerHTML = `<div class="wrap">
+    <div class="cover" style="${img(portada)}" role="img" aria-label="Foto de portada"></div>
+    <div class="info"><h1>${esc(N.nombre)}</h1>
+      <p class="muted">${esc(cats.map(c => c.nombre).join(' · '))}</p>
+      ${N.direccion ? `<p class="muted">${esc(N.direccion)}</p>` : ''}
+      <div class="notes">
+        <p class="note">${ICO_BOLSA}Solo para recoger en el local</p>
+        <p class="note">${ICO_AVISO}Pide, paga y te avisamos por WhatsApp cuando esté listo</p>
+      </div>
+      <button class="lnk" id="al1" style="margin-top:12px">Ver alérgenos</button></div>
+    ${dest.length ? `<h2 class="h2" style="margin:10px 16px">Destacados</h2><div class="dest">${dest.map(p => `<button class="dcard" data-p="${p.id}"><span class="ph" style="width:150px;height:140px;${img(p.foto_url, p._v)}"><span class="plus">+</span></span><span class="name" style="display:block;margin-top:6px">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span></button>`).join('')}</div>` : ''}
+    <nav class="tabs" aria-label="Categorías">${cats.map((c, i) => `<a href="#c${i}" class="${i ? '' : 'on'}">${esc(c.nombre)}</a>`).join('')}</nav>
+    ${cats.map((c, i) => {
+      const ps = PRODS.filter(p => p.categoria_id === c.id);
+      const comun = ps.length > 1 && ps[0].descripcion && ps.every(p => p.descripcion === ps[0].descripcion);
+      return `<section class="cat" id="c${i}"><h2 class="h2">${esc(c.nombre)}</h2>
+        ${comun ? `<p class="muted">Todos ${esc(ps[0].descripcion.charAt(0).toLowerCase() + ps[0].descripcion.slice(1)).replace(/^incluye/, 'incluyen')}</p>` : ''}
+        <div class="list">${ps.map(p => item(p, comun)).join('')}</div></section>`;
+    }).join('')}
+    <div style="padding:28px 16px 0"><button class="lnk" id="al2">Información sobre alérgenos</button></div>
+  </div>`;
+  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => abrirFicha(b.dataset.p));
+  $('al1').onclick = $('al2').onclick = abrirAlergenos;
+  espiarTabs();
+}
+
+function item(p, sinDesc) {
+  const n = cart.filter(l => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
+  const foto = `<span class="ph" style="${img(p.foto_url)}">${p.disponible ? `<span class="plus">${n || '+'}</span>` : ''}</span>`;
+  if (!p.disponible) return `<div class="item off"><div class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span><span style="font-size:14px;font-weight:500;color:var(--r)">Agotado</span></div>${foto}</div>`;
+  return `<button class="item" data-p="${p.id}"><span class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span>${p.descripcion && !sinDesc ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span>${foto}</button>`;
+}
+
+function espiarTabs() {
+  const links = [...document.querySelectorAll('.tabs a')];
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return;
+    links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+    const a = links.find(a => a.classList.contains('on'));
+    if (a) a.parentNode.scrollTo({ left: a.offsetLeft - 16, behavior: 'smooth' });
+  }), { rootMargin: '-60px 0px -70% 0px' });
+  document.querySelectorAll('section.cat').forEach(s => io.observe(s));
+}
+
+function abrirAlergenos() {
+  const el = $('alerg');
+  const con = PRODS.filter(p => (p.alergenos || []).length);
+  el.innerHTML = `<div class="inner">
+    <div class="top"><button class="back" id="ab" aria-label="Cerrar alérgenos">‹</button><h1 style="font-size:22px">Alérgenos</h1></div>
+    <div style="padding:0 16px">
+      <p style="margin:8px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45">${con.length ? 'Si tienes alguna alergia o intolerancia, avísanos en las instrucciones del pedido o pregunta en el local.' : 'El local está completando esta información. Si tienes alguna alergia o intolerancia, <strong>pregunta en el local antes de pedir</strong>.'}</p>
+      <table class="tabla"><tbody>${PRODS.map(p => `<tr><td>${esc(p.nombre)}</td><td>${(p.alergenos || []).length ? esc(p.alergenos.join(', ')) : 'Consultar en el local'}</td></tr>`).join('')}</tbody></table>
+      <h2 style="font-size:16px;margin:24px 0 0">Los 14 alérgenos de declaración obligatoria</h2>
+      <div class="grid14">${ALERGENOS.map(a => `<span>${a}</span>`).join('')}</div>
+    </div></div>`;
+  $('ab').onclick = () => { el.classList.remove('open'); lock(); };
+  el.classList.add('open'); el.scrollTop = 0; lock();
+}
+
+function abrirFicha(pid) {
+  const p = PRODS.find(x => x.id === pid); if (!p || !p.disponible) return;
+  let qty = 1;
+  const gs = GRUPOS.filter(g => g.producto_id === p.id);
+  const el = $('ficha');
+  const al = (p.alergenos || []).length ? p.alergenos.join(', ') : 'consultar en el local';
+  el.innerHTML = `<div class="inner">
+    <div style="position:relative"><span class="ph" style="height:300px;border-radius:0;${img(p.foto_url, p._v)}"></span><button class="close" id="fx" aria-label="Cerrar">✕</button></div>
+    <div style="padding:18px 16px"><h1 style="font-size:24px">${esc(p.nombre)}</h1>
+      <p style="font-size:18px;font-weight:500;margin:6px 0 0">${eur(p.precio)}</p>
+      ${p.descripcion ? `<p class="muted" style="font-size:15px">${esc(p.descripcion)}</p>` : ''}
+      <button class="lnk" id="fal" style="margin-top:10px;color:var(--g)">Alérgenos: ${esc(al)}</button>
+      ${gs.map(g => `<div class="sep"></div><fieldset style="border:0;margin:0;padding:0">
+        <legend style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 0 6px">
+          <span><span style="font-size:18px;font-weight:700;display:block">${esc(g.nombre)}</span><span class="muted">Elige ${g.maximo}</span></span>
+          ${g.obligatorio ? `<span class="pill" id="pg${g.id}">Obligatorio</span>` : ''}</legend>
+        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt">${esc(o.nombre)}${Number(o.precio_extra) ? ' (+' + eur(o.precio_extra) + ')' : ''}<input type="radio" name="g${g.id}" value="${o.id}"></label>`).join('')}
+      </fieldset>`).join('')}
+      <div class="sep"></div>
+      <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte"></label>
+    </div></div>
+    <div class="foot"><div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">1</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
+  const upd = () => { $('fq').textContent = qty; $('fa').textContent = 'Añadir · ' + eur(p.precio * qty); };
+  upd();
+  $('fm').onclick = () => { if (qty > 1) { qty--; upd(); } };
+  $('fp').onclick = () => { if (qty < 20) { qty++; upd(); } };
+  $('fx').onclick = cerrarFicha;
+  $('fal').onclick = abrirAlergenos;
+  el.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; } });
+  $('fa').onclick = () => {
+    const ops = []; let ok = true;
+    gs.forEach(g => {
+      const r = el.querySelector(`input[name="g${g.id}"]:checked`);
+      if (r) { const o = OPCS.find(x => x.id === r.value); ops.push({ grupo: g.nombre, nombre: o.nombre }); }
+      else if (g.obligatorio) { ok = false; const pg = $('pg' + g.id); pg.classList.add('err'); pg.textContent = 'Elige una opción'; pg.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    });
+    if (!ok) return;
+    const nota = $('fn').value.trim();
+    const key = p.id + '|' + ops.map(o => o.nombre).join(',') + '|' + nota;
+    const ex = cart.find(l => l.key === key);
+    if (ex) ex.qty += qty; else cart.push({ key, pid: p.id, qty, ops, nota });
+    save(); cerrarFicha(); render(); bar();
+  };
+  el.classList.add('open'); el.scrollTop = 0; lock();
+}
+function cerrarFicha() { $('ficha').classList.remove('open'); lock(); }
+
+const total = () => cart.reduce((a, l) => a + Number(PRODS.find(p => p.id === l.pid).precio) * l.qty, 0);
+const unidades = () => cart.reduce((a, l) => a + l.qty, 0);
+
+function bar() {
+  const b = $('bar');
+  if (!cart.length) { b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = `<button class="btn split" id="vb"><span style="display:flex;align-items:center;gap:10px"><span class="badge">${unidades()}</span>Ver pedido</span><span>${eur(total())}</span></button>`;
+  $('vb').onclick = abrirPedido;
+}
+
+function abrirPedido() {
+  const el = $('pedido');
+  const cerrar = () => { el.classList.remove('open'); lock(); render(); bar(); };
+  if (!cart.length) return cerrar();
+  let datos = {}; try { datos = JSON.parse(localStorage.getItem('datos-cliente') || '{}'); } catch (e) {}
+  el.innerHTML = `<div class="inner">
+    <div class="top"><button class="back" id="pb" aria-label="Volver a la carta">‹</button><div style="flex:1;min-width:0"><h1 style="font-size:22px">Tu pedido</h1><p class="muted" style="margin:0">${esc(N.nombre)} · Para recoger</p></div><button class="lnk" id="vaciar" style="margin-right:8px;color:var(--r)">Vaciar pedido</button></div>
+    <div style="padding:0 16px">
+      ${cart.map((l, i) => {
+        const p = PRODS.find(x => x.id === l.pid);
+        const extra = [...l.ops.map(o => o.grupo.replace(/^Elige tu /, '') + ': ' + o.nombre), l.nota].filter(Boolean).join(' · ');
+        return `<div class="line"><span class="ph" style="${img(p.foto_url, p._v)}"></span>
+          <div style="flex:1;min-width:0"><div class="name">${esc(p.nombre)}</div>${extra ? `<div class="desc">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</div>` : ''}<div style="font-size:14px;margin-top:2px">${eur(p.precio * l.qty)}</div></div>
+          <div class="qty"><button data-m="${i}" aria-label="Quitar uno">−</button><span>${l.qty}</span><button data-a="${i}" aria-label="Añadir uno">+</button></div>
+          <button class="del" data-d="${i}" aria-label="Eliminar ${esc(p.nombre)}">${ICO_BORRAR}</button></div>`;
+      }).join('')}
+      <button id="mas" style="margin:12px 0 4px;padding:9px 14px;border-radius:999px;border:0;background:var(--s);font-weight:500;cursor:pointer">+ Añadir más productos</button>
+      <label class="field" style="font-size:16px;margin-top:18px">Observaciones del pedido<input id="obs" maxlength="200" placeholder="Ej.: salsa aparte"></label>
+      <h2 style="font-size:16px;margin:22px 0 0">Tus datos</h2>
+      <label class="field">Nombre<input id="cn" autocomplete="given-name" maxlength="40" placeholder="Para llamarte al recoger" value="${esc(datos.n || '')}"></label>
+      <label class="field">WhatsApp<input id="ct" type="tel" autocomplete="tel" maxlength="20" placeholder="+34 600 000 000" value="${esc(datos.t || '')}"></label>
+      <p class="err" id="perr" role="alert"></p>
+      <p class="muted" style="font-size:12px">Usamos tu número solo para avisarte cuando tu pedido esté listo.</p>
+    </div></div>
+    <div class="foot"><div style="max-width:688px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px"><span style="font-weight:700">Total <span class="muted" style="font-size:12px;font-weight:400">IVA incluido</span></span><span style="font-size:20px;font-weight:700">${eur(total())}</span></div>
+      <button class="btn" id="pay">Pagar ${eur(total())}</button>
+      <p class="muted" style="text-align:center;font-size:12px;margin-top:8px">Tarjeta · Apple Pay · Google Pay · Bizum</p></div></div>`;
+  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const l = cart[b.dataset.m]; l.qty--; if (!l.qty) cart.splice(b.dataset.m, 1); save(); abrirPedido(); });
+  el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { cart[b.dataset.a].qty++; save(); abrirPedido(); });
+  el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { cart.splice(b.dataset.d, 1); save(); abrirPedido(); });
+  let confirmar = false;
+  $('vaciar').onclick = () => {
+    if (!confirmar) { confirmar = true; $('vaciar').textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { confirmar = false; const v = $('vaciar'); if (v) v.textContent = 'Vaciar pedido'; }, 4000); return; }
+    cart = []; save(); cerrar();
+  };
+  $('pb').onclick = cerrar; $('mas').onclick = cerrar;
+  $('cn').oninput = $('ct').oninput = () => { $('perr').textContent = ''; };
+  $('pay').onclick = () => {
+    const n = $('cn').value.trim(), t = $('ct').value.replace(/[\s.()-]/g, '');
+    const e = $('perr'); e.style.color = '';
+    if (!n) { e.textContent = 'Escribe tu nombre.'; $('cn').focus(); return; }
+    if (!/^\+?\d{9,15}$/.test(t)) { e.textContent = 'Escribe un número de WhatsApp válido.'; $('ct').focus(); return; }
+    try { localStorage.setItem('datos-cliente', JSON.stringify({ n, t })); } catch (x) {}
+    e.style.color = 'var(--g)';
+    e.textContent = 'Versión de prueba: el pago con Stripe se conecta en el siguiente paso.';
+  };
+  el.classList.add('open'); lock();
+}
+
+load();
+</script>
+</body>
+</html>
