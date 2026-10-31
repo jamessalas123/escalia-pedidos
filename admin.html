@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Escalia Digital · Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--negro:#000;--gris:#545454;--linea:#E8E8E8;--suave:#F3F3F3;--borde:#CBCBCB;--verde:#0B7A3E;--rojo:#B42318}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#000;font-family:Inter,system-ui,sans-serif;font-size:15px}
+a{color:#000}
+button,input,textarea{font-family:inherit;font-size:15px;color:#000}
+.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 24px;border-bottom:1px solid var(--linea);position:sticky;top:0;background:#fff;z-index:5}
+.barra b{font-size:18px}
+.barra .salir{border:none;background:none;color:var(--gris);text-decoration:underline;cursor:pointer;padding:8px}
+main{max-width:1040px;margin:0 auto;padding:28px 24px 80px;display:flex;flex-direction:column;gap:22px}
+h1{margin:0;font-size:26px;font-weight:700}
+h2{margin:0;font-size:16px;font-weight:700}
+p{margin:0}
+.sub{color:var(--gris)}
+.volver{font-size:14px;color:var(--gris);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 20px;border-radius:8px;border:none;background:#000;color:#fff;font-weight:600;text-decoration:none;cursor:pointer}
+.btn.claro{background:var(--suave);color:#000}
+.btn.borde{background:#fff;color:#000;border:1px solid #000}
+.btn.peq{height:38px;padding:0 14px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:default}
+.campo{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600}
+.campo input,.campo textarea{height:48px;padding:0 14px;border-radius:8px;border:1px solid var(--borde);font-weight:400}
+.campo textarea{height:auto;padding:12px 14px;resize:vertical}
+.ayuda{font-size:13px;font-weight:400;color:var(--gris)}
+.error{color:var(--rojo);font-size:14px;font-weight:500}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;background:var(--suave)}
+.chip.ok{background:#E7F5EC;color:#0B6B37}
+.chip.aviso{background:#FFF4E0;color:#8A5300}
+.tarjeta{border:1px solid var(--linea);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.cabeza{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.tabla{border:1px solid var(--linea);border-radius:12px;overflow-x:auto}
+table{width:100%;min-width:720px;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;color:var(--gris);background:#FAFAFA;padding:12px 16px}
+td{padding:14px 16px;border-top:1px solid var(--linea);vertical-align:middle}
+.logo{width:40px;height:40px;border-radius:8px;background:#EEE center/cover no-repeat;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:#5E5E5E}
+.fila{display:flex;align-items:center;gap:12px}
+.acciones{display:flex;gap:8px;flex-wrap:wrap}
+.acceso{max-width:400px;margin:8vh auto 0;padding:0 24px;display:flex;flex-direction:column;gap:18px}
+.rejilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;max-width:720px}
+.ancho{grid-column:span 2}
+@media (max-width:640px){.rejilla{grid-template-columns:1fr}.ancho{grid-column:auto}main{padding:20px 16px 80px}.barra{padding:12px 16px}}
+.slug{display:flex;align-items:center;height:48px;border-radius:8px;border:1px solid var(--borde);overflow:hidden;font-weight:400}
+.slug span{padding:0 12px;height:100%;display:flex;align-items:center;background:var(--suave);color:var(--gris);font-size:14px;white-space:nowrap}
+.slug input{flex:1;min-width:0;height:100%;border:none;padding:0 12px}
+/* Editor de carta */
+.editor{display:flex;gap:24px;align-items:flex-start}
+.cats{flex:0 0 220px;display:flex;flex-direction:column;gap:4px;position:sticky;top:76px}
+.cats button{display:flex;justify-content:space-between;align-items:center;height:42px;padding:0 12px;border-radius:8px;border:none;background:none;cursor:pointer;text-align:left}
+.cats button.activa{background:var(--suave);font-weight:600}
+.cats button small{color:var(--gris);font-size:13px;font-weight:400}
+.cats .nueva{margin-top:8px;border:1px dashed #A6A6A6;justify-content:center}
+.prods{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.prod{border:1px solid var(--linea);border-radius:12px;padding:12px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.prod.agotado{background:#FAFAFA}
+.foto{display:flex;flex-direction:column;align-items:center;gap:4px}
+.foto .img{width:76px;height:76px;border-radius:8px;background:#EEE center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:11px;color:#5E5E5E}
+.foto label{font-size:12px;text-decoration:underline;cursor:pointer}
+.foto input{display:none}
+.datos{flex:1 1 260px;display:flex;flex-direction:column;gap:8px}
+.datos .linea{display:flex;gap:10px;flex-wrap:wrap}
+.mini{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--gris)}
+.mini input,.mini textarea{height:42px;padding:0 12px;border-radius:8px;border:1px solid var(--borde)}
+.mini textarea{height:auto;min-height:42px;padding:10px 12px;resize:vertical;font-size:14px}
+.mini.precio input.falta{border:2px solid var(--rojo)}
+.lado{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.check input{width:20px;height:20px;margin:0;accent-color:var(--verde)}
+.borrar{width:42px;height:42px;border-radius:8px;border:none;background:var(--suave);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.borrar.confirmar{background:var(--rojo);color:#fff;width:auto;padding:0 12px}
+.etq{font-size:12px;color:var(--gris)}
+@media (max-width:760px){.editor{flex-direction:column}.cats{position:static;flex:none;width:100%;flex-direction:row;overflow-x:auto}.cats button{flex:none;gap:8px}.cats .nueva{margin:0}}
+/* Publicado */
+.dos{display:flex;gap:20px;flex-wrap:wrap}
+.dos>section{flex:1 1 340px;display:flex;flex-direction:column;gap:16px}
+.caja{display:flex;align-items:center;min-height:46px;padding:10px 12px;border-radius:8px;background:var(--suave);word-break:break-all}
+.qr{width:220px;height:220px;align-self:center}
+.qr svg{width:100%;height:100%}
+.aviso{display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:12px;background:#FFF4E0}
+.vacio{padding:40px;text-align:center;color:var(--gris);border:1px dashed var(--borde);border-radius:12px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:12px 18px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+#toast.ver{opacity:1}
+</style>
+</head>
+<body>
+<div id="app"><main><p class="sub">Cargando…</p></main></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
+const app = document.getElementById('app');
+let usuario = null, esAdmin = false;
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euros = n => Number(n || 0).toLocaleString('es-ES', {style:'currency', currency:'EUR'});
+const enlace = slug => `${location.origin}/${slug}`;
+const bg = u => u ? `style="background-image:url('${esc(u)}')"` : '';
+const hoy = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Madrid'}).format(new Date());
+const slugDe = t => t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/&/g,' y ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+let tToast;
+function aviso(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('ver'); clearTimeout(tToast); tToast = setTimeout(() => t.classList.remove('ver'), 2200); }
+async function copiar(texto){
+  try { await navigator.clipboard.writeText(texto); }
+  catch { const a = document.createElement('textarea'); a.value = texto; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }
+  aviso('Copiado');
+}
+function barra(){
+  return `<header class="barra"><b>Escalia Digital</b><span class="sub" style="font-size:14px">${esc(usuario?.email)} <button class="salir" id="salir">Salir</button></span></header>`;
+}
+function pintar(html){
+  app.innerHTML = barra() + `<main>${html}</main>`;
+  document.getElementById('salir').onclick = async () => { await sb.auth.signOut(); location.hash = ''; };
+  window.scrollTo(0, 0);
+}
+async function subirFoto(negocioId, archivo, nombre){
+  if (archivo.size > 5 * 1024 * 1024) throw new Error('La foto pesa más de 5 MB');
+  const ext = (archivo.name.split('.').pop() || 'jpg').toLowerCase();
+  const ruta = `${negocioId}/${nombre}-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from('fotos').upload(ruta, archivo, { contentType: archivo.type, upsert: false });
+  if (error) throw error;
+  return sb.storage.from('fotos').getPublicUrl(ruta).data.publicUrl;
+}
+
+/* ---------- Arranque y rutas ---------- */
+async function fijarSesion(sesion){
+  usuario = sesion?.user || null; esAdmin = false;
+  if (usuario) {
+    const { data } = await sb.from('admins_plataforma').select('usuario_id').eq('usuario_id', usuario.id).maybeSingle();
+    esAdmin = !!data;
+  }
+  ruta();
+}
+function ruta(){
+  if (!usuario) return vistaAcceso();
+  if (!esAdmin) return vistaSinPermiso();
+  const [v, id] = location.hash.replace('#','').split('/');
+  if (v === 'nuevo') return vistaNuevo();
+  if (v === 'carta' && id) return vistaCarta(id);
+  if (v === 'publicado' && id) return vistaPublicado(id);
+  return vistaNegocios();
+}
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  await fijarSesion(session);
+  sb.auth.onAuthStateChange((_e, s) => { if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s); });
+  window.addEventListener('hashchange', ruta);
+})();
+
+/* ---------- Acceso ---------- */
+function vistaAcceso(modo = 'entrar'){
+  const crear = modo === 'crear';
+  app.innerHTML = `<div class="acceso">
+    <div><p style="font-size:22px;font-weight:700">Escalia Digital</p><p class="sub">${crear ? 'Crea tu cuenta de administrador' : 'Panel de administración'}</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
+      <label class="campo">Contraseña<input type="password" id="clave" autocomplete="${crear ? 'new-password' : 'current-password'}" minlength="8" required>
+        ${crear ? '<span class="ayuda">Mínimo 8 caracteres.</span>' : ''}</label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">${crear ? 'Crear cuenta' : 'Entrar'}</button>
+    </form>
+    <button class="btn claro" id="cambiar">${crear ? 'Ya tengo cuenta' : 'Crear mi cuenta (primera vez)'}</button>
+  </div>`;
+  document.getElementById('cambiar').onclick = () => vistaAcceso(crear ? 'entrar' : 'crear');
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault();
+    const err = document.getElementById('err'); err.hidden = true;
+    const email = document.getElementById('email').value.trim(), password = document.getElementById('clave').value;
+    const boton = e.target.querySelector('button'); boton.disabled = true;
+    if (crear) {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      boton.disabled = false;
+      if (error) { err.textContent = error.message; err.hidden = false; return; }
+      if (!data.session) {
+        app.innerHTML = `<div class="acceso"><h1>Cuenta creada</h1><p class="sub">Avisa en el chat para activarla como administrador. Después entra con tu correo y contraseña.</p><button class="btn" id="ir">Ir a entrar</button></div>`;
+        document.getElementById('ir').onclick = () => vistaAcceso('entrar');
+      }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      boton.disabled = false;
+      if (error) {
+        err.textContent = /confirm/i.test(error.message) ? 'La cuenta aún no está activada. Avisa en el chat para activarla.' : 'Correo o contraseña incorrectos.';
+        err.hidden = false;
+      }
+    }
+  };
+}
+function vistaSinPermiso(){
+  pintar(`<h1>Cuenta sin acceso</h1><p class="sub">Esta cuenta todavía no es administradora de Escalia Digital. Avisa en el chat para activarla y vuelve a cargar la página.</p>`);
+}
+
+/* ---------- Negocios ---------- */
+async function vistaNegocios(){
+  pintar('<p class="sub">Cargando negocios…</p>');
+  const [{ data: negocios, error }, { data: pedidos }] = await Promise.all([
+    sb.from('negocios').select('id,nombre,slug,logo_url,activo,es_plantilla,stripe_account_id,productos(count)').order('creado_en'),
+    sb.from('pedidos').select('negocio_id').eq('fecha', hoy()).neq('estado', 'pendiente_pago')
+  ]);
+  if (error) return pintar(`<p class="error">No se pudieron cargar los negocios: ${esc(error.message)}</p>`);
+  const porNegocio = {}; (pedidos || []).forEach(p => porNegocio[p.negocio_id] = (porNegocio[p.negocio_id] || 0) + 1);
+  const reales = negocios.filter(n => !n.es_plantilla), plantilla = negocios.find(n => n.es_plantilla);
+  const filas = reales.map(n => `<tr>
+    <td><div class="fila"><span class="logo" ${bg(n.logo_url)}>${n.logo_url ? '' : 'Logo'}</span><div style="display:flex;flex-direction:column"><b>${esc(n.nombre)}</b><a class="sub" href="${esc(enlace(n.slug))}" target="_blank" rel="noopener" style="text-decoration:none">/${esc(n.slug)}</a></div></div></td>
+    <td>${n.activo ? '<span class="chip ok">Publicado</span>' : '<span class="chip">Borrador</span>'}</td>
+    <td>${n.productos?.[0]?.count ?? 0} productos</td>
+    <td>${n.stripe_account_id ? '<span class="chip ok">Conectado</span>' : '<span class="chip aviso">Sin conectar</span>'}</td>
+    <td>${porNegocio[n.id] || 0}</td>
+    <td><div class="acciones"><a class="btn claro peq" href="#carta/${n.id}">Editar carta</a><a class="btn claro peq" href="#publicado/${n.id}">Enlace y QR</a></div></td>
+  </tr>`).join('');
+  pintar(`
+    <div class="cabeza"><div><h1>Negocios</h1><p class="sub">Cada negocio tiene su página, su panel y sus cobros.</p></div>
+      <a class="btn" href="#nuevo">+ Añadir nuevo negocio</a></div>
+    ${reales.length ? `<div class="tabla"><table><thead><tr><th>Negocio</th><th>Estado</th><th>Carta</th><th>Cobros</th><th>Pedidos hoy</th><th>Acciones</th></tr></thead><tbody>${filas}</tbody></table></div>`
+      : '<div class="vacio">Aún no hay negocios. Pulsa "Añadir nuevo negocio".</div>'}
+    ${plantilla ? `<section class="fila" style="padding:18px 20px;border-radius:12px;background:var(--suave)"><div style="display:flex;flex-direction:column;gap:2px"><b>${esc(plantilla.nombre)}</b><span class="sub" style="font-size:14px">${plantilla.productos?.[0]?.count ?? 0} productos · bebida obligatoria en los menús · los negocios nuevos salen de aquí</span></div><a class="btn claro peq" style="margin-left:auto" href="#carta/${plantilla.id}">Editar plantilla</a></section>` : ''}
+  `);
+}
+
+/* ---------- Añadir nuevo negocio ---------- */
+function vistaNuevo(){
+  pintar(`
+    <div><a class="volver" href="#">← Negocios</a><h1 style="margin-top:6px">Añadir nuevo negocio</h1><p class="sub">Se crea con la carta de la plantilla ya montada. Luego pones precios y fotos.</p></div>
+    <form id="f" class="rejilla">
+      <label class="campo ancho">Nombre del negocio<input id="nombre" required maxlength="80" placeholder="Ej.: Kebab Alí"></label>
+      <div class="campo ancho">Dirección de su página
+        <div class="slug"><span>${esc(location.host)}/</span><input id="slug" required maxlength="40" aria-label="Dirección de su página"></div>
+        <span class="ayuda">Se rellena sola a partir del nombre. Solo letras, números y guiones.</span></div>
+      <label class="campo">Dirección del local<input id="direccion" placeholder="Calle y número, ciudad"></label>
+      <label class="campo">WhatsApp del negocio<input id="whatsapp" type="tel" placeholder="+34 600 000 000"></label>
+      <label class="campo">Horario<input id="horario" placeholder="Ej.: L-D 19:00-23:30"></label>
+      <label class="campo">Logo (opcional)<input id="logo" type="file" accept="image/png,image/jpeg,image/webp" style="padding-top:12px"></label>
+      <p class="error ancho" id="err" hidden></p>
+      <div class="ancho acciones"><button class="btn" type="submit">Crear con la plantilla</button><a class="btn claro" href="#">Cancelar</a></div>
+    </form>`);
+  const nombre = document.getElementById('nombre'), slug = document.getElementById('slug');
+  let tocado = false;
+  nombre.oninput = () => { if (!tocado) slug.value = slugDe(nombre.value); };
+  slug.oninput = () => { tocado = true; slug.value = slug.value.toLowerCase().replace(/[^a-z0-9-]/g, ''); };
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault();
+    const err = document.getElementById('err'); err.hidden = true;
+    const s = slug.value.replace(/-+/g,'-').replace(/^-|-$/g,'');
+    const tel = document.getElementById('whatsapp').value.replace(/[\s-]/g, '');
+    if (!s) { err.textContent = 'Falta la dirección de su página.'; err.hidden = false; return; }
+    if (tel && !/^\+?\d{9,15}$/.test(tel)) { err.textContent = 'El WhatsApp no parece válido.'; err.hidden = false; return; }
+    const boton = e.target.querySelector('button[type=submit]'); boton.disabled = true; boton.textContent = 'Creando…';
+    const { data: id, error } = await sb.rpc('crear_negocio_desde_plantilla', { p_nombre: nombre.value.trim(), p_slug: s });
+    if (error) {
+      boton.disabled = false; boton.textContent = 'Crear con la plantilla';
+      err.textContent = error.code === '23505' ? 'Esa dirección ya la usa otro negocio. Prueba otra.' : /reservado|formato|check/i.test(error.message) ? 'Esa dirección no se puede usar. Prueba otra.' : error.message;
+      err.hidden = false; return;
+    }
+    const cambios = { direccion: document.getElementById('direccion').value.trim() || null, whatsapp: tel || null };
+    const h = document.getElementById('horario').value.trim(); if (h) cambios.horario = { texto: h };
+    const archivo = document.getElementById('logo').files[0];
+    try { if (archivo) cambios.logo_url = await subirFoto(id, archivo, 'logo'); } catch (x) { aviso('No se pudo subir el logo: ' + x.message); }
+    await sb.from('negocios').update(cambios).eq('id', id);
+    location.hash = `carta/${id}`;
+  };
+}
+
+/* ---------- Editar carta ---------- */
+let carta = null;
+async function vistaCarta(id){
+  pintar('<p class="sub">Cargando carta…</p>');
+  const [n, c, p] = await Promise.all([
+    sb.from('negocios').select('*').eq('id', id).single(),
+    sb.from('categorias').select('*').eq('negocio_id', id).order('orden'),
+    sb.from('productos').select('*').eq('negocio_id', id).order('orden')
+  ]);
+  if (n.error) return pintar(`<a class="volver" href="#">← Negocios</a><p class="error">No se encontró el negocio.</p>`);
+  const prev = carta && carta.negocio.id === id ? carta.sel : null;
+  carta = { negocio: n.data, cats: c.data || [], prods: p.data || [], sel: prev || (c.data?.[0]?.id ?? 'datos') };
+  pintarCarta();
+}
+function pintarCarta(){
+  const { negocio: n, cats, prods, sel } = carta;
+  const conPrecio = prods.filter(x => Number(x.precio) > 0).length;
+  const nav = cats.map(c => `<button data-cat="${c.id}" class="${sel === c.id ? 'activa' : ''}">${esc(c.nombre)}<small>${prods.filter(x => x.categoria_id === c.id).length}</small></button>`).join('');
+  pintar(`
+    <div class="cabeza">
+      <div class="fila" style="flex-wrap:wrap"><a class="volver" href="#">← Negocios</a><b style="font-size:20px">${esc(n.nombre)}</b>
+        ${n.es_plantilla ? '<span class="chip">Plantilla</span>' : n.activo ? '<span class="chip ok">Publicado</span>' : '<span class="chip">Borrador</span>'}</div>
+      <div class="fila" style="flex-wrap:wrap"><span class="sub" style="font-size:14px"><b style="color:#000">${conPrecio} de ${prods.length}</b> precios puestos</span>
+        ${n.es_plantilla ? '' : n.activo ? `<a class="btn claro peq" href="${esc(enlace(n.slug))}" target="_blank" rel="noopener">Ver carta</a><a class="btn peq" href="#publicado/${n.id}">Enlace y QR</a>` : `<button class="btn" id="publicar">Publicar</button>`}</div>
+    </div>
+    <div class="editor">
+      <nav class="cats" aria-label="Categorías">
+        ${n.es_plantilla ? '' : `<button data-cat="datos" class="${sel === 'datos' ? 'activa' : ''}">Datos del negocio</button>`}
+        ${nav}
+        <button class="nueva" id="nuevaCat">+ Añadir categoría</button>
+      </nav>
+      <div class="prods" id="prods"></div>
+    </div>`);
+  document.querySelectorAll('.cats [data-cat]').forEach(b => b.onclick = () => { carta.sel = b.dataset.cat; pintarCarta(); });
+  document.getElementById('nuevaCat').onclick = nuevaCategoria;
+  const pub = document.getElementById('publicar');
+  if (pub) pub.onclick = () => publicar(n, conPrecio, prods.length);
+  if (sel === 'datos') pintarDatos(); else pintarProductos();
+}
+function pintarProductos(){
+  const { cats, prods, sel } = carta;
+  const cat = cats.find(c => c.id === sel);
+  const lista = prods.filter(x => x.categoria_id === sel);
+  const caja = document.getElementById('prods');
+  caja.innerHTML = `
+    <div class="cabeza"><h1 style="font-size:22px">${esc(cat?.nombre || '')}</h1><button class="btn claro peq" id="nuevoProd">+ Añadir producto</button></div>
+    ${lista.length ? '' : '<div class="vacio">No hay productos en esta categoría.</div>'}
+    ${lista.map(x => `<div class="prod ${x.disponible ? '' : 'agotado'}" data-id="${x.id}">
+      <div class="foto"><span class="img" ${bg(x.foto_url)}>${x.foto_url ? '' : 'Sin foto'}</span>
+        <label>Cambiar foto<input type="file" accept="image/png,image/jpeg,image/webp" data-campo="foto"></label></div>
+      <div class="datos">
+        <div class="linea">
+          <label class="mini" style="flex:1 1 200px">Nombre<input data-campo="nombre" value="${esc(x.nombre)}" maxlength="80"></label>
+          <label class="mini precio" style="flex:0 0 120px">Precio (€)<input data-campo="precio" inputmode="decimal" value="${Number(x.precio) > 0 ? String(x.precio).replace('.', ',') : ''}" placeholder="0,00" class="${Number(x.precio) > 0 ? '' : 'falta'}">
+            ${Number(x.precio) > 0 ? '' : '<span class="error" style="font-size:12px">Falta precio</span>'}</label>
+        </div>
+        <label class="mini">Descripción<textarea data-campo="descripcion" rows="1" maxlength="200" placeholder="Qué lleva">${esc(x.descripcion || '')}</textarea></label>
+      </div>
+      <div class="lado">
+        <label class="check"><input type="checkbox" data-campo="disponible" ${x.disponible ? 'checked' : ''}>${x.disponible ? 'Disponible' : 'Agotado'}</label>
+        <button class="borrar" data-borrar aria-label="Borrar producto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+      </div>
+    </div>`).join('')}`;
+  document.getElementById('nuevoProd').onclick = nuevoProducto;
+  caja.querySelectorAll('.prod').forEach(fila => {
+    const id = fila.dataset.id, prod = carta.prods.find(x => x.id === id);
+    fila.querySelectorAll('[data-campo]').forEach(el => el.onchange = () => guardarCampo(prod, el));
+    const b = fila.querySelector('[data-borrar]');
+    let armado = false, t;
+    b.onclick = async () => {
+      if (!armado) { armado = true; b.classList.add('confirmar'); b.textContent = '¿Borrar?'; t = setTimeout(() => { armado = false; pintarProductos(); }, 3000); return; }
+      clearTimeout(t);
+      const { error } = await sb.from('productos').delete().eq('id', id);
+      if (error) { aviso(error.code === '23503' ? 'Tiene pedidos: márcalo como Agotado en vez de borrarlo' : 'No se pudo borrar'); return pintarProductos(); }
+      carta.prods = carta.prods.filter(x => x.id !== id); aviso('Producto borrado'); pintarCarta();
+    };
+  });
+}
+async function guardarCampo(prod, el){
+  const campo = el.dataset.campo;
+  let cambio = {};
+  if (campo === 'foto') {
+    const archivo = el.files[0]; if (!archivo) return;
+    aviso('Subiendo foto…');
+    try { cambio.foto_url = await subirFoto(carta.negocio.id, archivo, 'producto'); }
+    catch (x) { return aviso('No se pudo subir: ' + x.message); }
+  } else if (campo === 'precio') {
+    const v = el.value.trim().replace('€','').replace(',', '.');
+    const num = v === '' ? 0 : Number(v);
+    if (!isFinite(num) || num < 0 || num > 999) { aviso('Precio no válido'); el.value = Number(prod.precio) > 0 ? String(prod.precio).replace('.', ',') : ''; return; }
+    cambio.precio = Math.round(num * 100) / 100;
+  } else if (campo === 'disponible') cambio.disponible = el.checked;
+  else if (campo === 'nombre') { if (!el.value.trim()) { el.value = prod.nombre; return aviso('El nombre no puede quedar vacío'); } cambio.nombre = el.value.trim(); }
+  else if (campo === 'descripcion') cambio.descripcion = el.value.trim() || null;
+  const { error } = await sb.from('productos').update(cambio).eq('id', prod.id);
+  if (error) return aviso('No se pudo guardar');
+  Object.assign(prod, cambio);
+  aviso('Guardado');
+  if (campo === 'precio' || campo === 'foto' || campo === 'disponible') pintarCarta();
+}
+async function nuevoProducto(){
+  const { negocio, prods, sel } = carta;
+  const orden = Math.max(0, ...prods.filter(x => x.categoria_id === sel).map(x => x.orden || 0)) + 1;
+  const { data, error } = await sb.from('productos').insert({ negocio_id: negocio.id, categoria_id: sel, nombre: 'Producto nuevo', precio: 0, disponible: true, orden }).select().single();
+  if (error) return aviso('No se pudo añadir');
+  carta.prods.push(data); pintarCarta();
+  const input = document.querySelector(`.prod[data-id="${data.id}"] [data-campo="nombre"]`);
+  if (input) { input.focus(); input.select(); input.scrollIntoView({ block: 'center' }); }
+}
+function nuevaCategoria(){
+  const boton = document.getElementById('nuevaCat');
+  const form = document.createElement('form');
+  form.style.cssText = 'display:flex;gap:6px;margin-top:8px';
+  form.innerHTML = '<input required maxlength="40" placeholder="Nombre" aria-label="Nombre de la categoría" style="flex:1;min-width:0;height:42px;padding:0 10px;border-radius:8px;border:1px solid var(--borde)"><button class="btn peq">OK</button>';
+  boton.replaceWith(form); form.querySelector('input').focus();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const nombre = form.querySelector('input').value.trim();
+    const orden = Math.max(0, ...carta.cats.map(c => c.orden || 0)) + 1;
+    const { data, error } = await sb.from('categorias').insert({ negocio_id: carta.negocio.id, nombre, orden, activa: true }).select().single();
+    if (error) return aviso('No se pudo crear');
+    carta.cats.push(data); carta.sel = data.id; pintarCarta();
+  };
+}
+function pintarDatos(){
+  const n = carta.negocio;
+  document.getElementById('prods').innerHTML = `
+    <h1 style="font-size:22px">Datos del negocio</h1>
+    <form id="fd" class="rejilla" style="max-width:none">
+      <label class="campo ancho">Nombre<input id="d_nombre" required maxlength="80" value="${esc(n.nombre)}"></label>
+      <label class="campo">Dirección del local<input id="d_dir" value="${esc(n.direccion || '')}"></label>
+      <label class="campo">WhatsApp del negocio<input id="d_wa" type="tel" value="${esc(n.whatsapp || '')}" placeholder="+34 600 000 000"></label>
+      <label class="campo">Horario<input id="d_hor" value="${esc(n.horario?.texto || '')}" placeholder="Ej.: L-D 19:00-23:30"></label>
+      <div class="campo">Logo<div class="fila"><span class="logo" ${bg(n.logo_url)}>${n.logo_url ? '' : 'Logo'}</span><input id="d_logo" type="file" accept="image/png,image/jpeg,image/webp"></div></div>
+      <p class="sub ancho" style="font-size:13px">Dirección de su página: ${esc(location.host)}/${esc(n.slug)} (no se cambia para no romper el QR ya impreso).</p>
+      <div class="ancho"><button class="btn" type="submit">Guardar datos</button></div>
+    </form>`;
+  document.getElementById('fd').onsubmit = async e => {
+    e.preventDefault();
+    const tel = document.getElementById('d_wa').value.replace(/[\s-]/g, '');
+    if (tel && !/^\+?\d{9,15}$/.test(tel)) return aviso('El WhatsApp no parece válido');
+    const cambios = { nombre: document.getElementById('d_nombre').value.trim(), direccion: document.getElementById('d_dir').value.trim() || null, whatsapp: tel || null,
+      horario: document.getElementById('d_hor').value.trim() ? { ...(n.horario || {}), texto: document.getElementById('d_hor').value.trim() } : (n.horario || {}) };
+    const archivo = document.getElementById('d_logo').files[0];
+    try { if (archivo) cambios.logo_url = await subirFoto(n.id, archivo, 'logo'); } catch (x) { return aviso('No se pudo subir el logo'); }
+    const { error } = await sb.from('negocios').update(cambios).eq('id', n.id);
+    if (error) return aviso('No se pudo guardar');
+    Object.assign(n, cambios); aviso('Datos guardados'); pintarCarta();
+  };
+}
+async function publicar(n, conPrecio, total){
+  const boton = document.getElementById('publicar');
+  if (conPrecio < total && !boton.dataset.seguro) {
+    boton.dataset.seguro = '1'; boton.textContent = `Faltan ${total - conPrecio} precios · Publicar igual`;
+    aviso('Los productos sin precio no se podrán pedir bien'); return;
+  }
+  boton.disabled = true;
+  const { error } = await sb.from('negocios').update({ activo: true }).eq('id', n.id);
+  if (error) { boton.disabled = false; return aviso('No se pudo publicar'); }
+  location.hash = `publicado/${n.id}`;
+}
+
+/* ---------- Publicado: enlace, texto, QR ---------- */
+function qrDe(texto){ const q = qrcode(0, 'M'); q.addData(texto); q.make(); return q; }
+async function vistaPublicado(id){
+  pintar('<p class="sub">Cargando…</p>');
+  const { data: n, error } = await sb.from('negocios').select('*').eq('id', id).single();
+  if (error) return pintar(`<a class="volver" href="#">← Negocios</a><p class="error">No se encontró el negocio.</p>`);
+  const url = enlace(n.slug);
+  const texto = `¡Hola! Gracias por escribir a ${n.nombre}. Haz tu pedido y págalo aquí: ${url} Te avisamos por WhatsApp cuando esté listo para recoger.`;
+  const qr = qrDe(url);
+  pintar(`
+    <a class="volver" href="#">← Negocios</a>
+    ${n.activo
+      ? `<div class="fila"><span style="width:52px;height:52px;flex:none;border-radius:26px;background:var(--verde);color:#fff;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg></span>
+         <div><h1>${esc(n.nombre)} ya está publicado</h1><p class="sub">Dale esto al dueño y ya puede recibir pedidos.</p></div></div>`
+      : `<div class="aviso"><div style="flex:1"><b>${esc(n.nombre)} aún no está publicado</b><p class="sub" style="font-size:14px">Los clientes no pueden ver la carta hasta que lo publiques.</p></div><button class="btn" id="publicarYa">Publicar</button></div>`}
+    <div class="dos">
+      <section>
+        <div class="tarjeta"><h2>1. Enlace de su carta</h2>
+          <div class="caja">${esc(url)}</div>
+          <div class="acciones"><button class="btn peq" data-copiar="${esc(url)}">Copiar</button><a class="btn claro peq" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a></div></div>
+        <div class="tarjeta"><h2>2. Texto para su WhatsApp Business</h2>
+          <p class="sub" style="font-size:14px">Pégalo en "Mensaje de bienvenida" y en "Mensaje de ausencia".</p>
+          <div class="caja" style="word-break:normal;line-height:1.5">${esc(texto)}</div>
+          <div><button class="btn peq" data-copiar="${esc(texto)}">Copiar texto</button></div></div>
+        <div class="tarjeta"><h2>3. Cobros del dueño</h2>
+          <p class="sub" style="font-size:14px">Se hace junto al dueño: él pone su DNI y su cuenta bancaria. El dinero de los pedidos va directo a su cuenta.</p>
+          <div class="fila" style="flex-wrap:wrap"><button class="btn borde peq" disabled>Conectar cobros con el dueño</button><span class="chip aviso">Llega con el paso del pago</span></div></div>
+      </section>
+      <section class="tarjeta" style="align-items:center">
+        <h2 style="align-self:flex-start">4. QR para el mostrador</h2>
+        <div class="qr" role="img" aria-label="Código QR de la carta">${qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true })}</div>
+        <b>Escanea para pedir</b>
+        <div class="acciones" style="justify-content:center"><button class="btn peq" id="descargar">Descargar QR</button><button class="btn claro peq" id="cartel">Cartel para imprimir</button></div>
+      </section>
+    </div>`);
+  document.querySelectorAll('[data-copiar]').forEach(b => b.onclick = () => copiar(b.dataset.copiar));
+  document.getElementById('descargar').onclick = () => descargarQR(qr, n.slug);
+  document.getElementById('cartel').onclick = () => cartel(n, url, qr);
+  const p = document.getElementById('publicarYa');
+  if (p) p.onclick = async () => { p.disabled = true; const { error } = await sb.from('negocios').update({ activo: true }).eq('id', n.id); if (error) { p.disabled = false; return aviso('No se pudo publicar'); } vistaPublicado(id); };
+}
+function descargarQR(qr, slug){
+  const celdas = qr.getModuleCount(), margen = 4, tam = 24, lado = (celdas + margen * 2) * tam;
+  const c = document.createElement('canvas'); c.width = c.height = lado;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, lado, lado); x.fillStyle = '#000';
+  for (let f = 0; f < celdas; f++) for (let k = 0; k < celdas; k++) if (qr.isDark(f, k)) x.fillRect((k + margen) * tam, (f + margen) * tam, tam, tam);
+  const a = document.createElement('a'); a.download = `qr-${slug}.png`; a.href = c.toDataURL('image/png'); a.click();
+}
+function cartel(n, url, qr){
+  const w = window.open('', '_blank');
+  if (!w) return aviso('Permite las ventanas emergentes para imprimir');
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cartel QR · ${esc(n.nombre)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>@page{size:A4;margin:0}body{margin:0;font-family:Inter,system-ui,sans-serif;color:#000}
+    .h{width:210mm;height:297mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10mm;text-align:center}
+    h1{margin:0;font-size:34pt}.t{font-size:26pt;font-weight:700;margin:0}.s{font-size:15pt;color:#444;margin:0}
+    .q{width:120mm;height:120mm}.q svg{width:100%;height:100%}.u{font-size:12pt;color:#666;margin:0}
+    ${n.logo_url ? '.l{width:30mm;height:30mm;border-radius:6mm;background:center/cover no-repeat}' : ''}</style></head>
+    <body><div class="h">${n.logo_url ? `<div class="l" style="background-image:url('${esc(n.logo_url.startsWith('/') ? location.origin + n.logo_url : n.logo_url)}')"></div>` : ''}
+    <h1>${esc(n.nombre)}</h1><p class="t">Escanea para pedir</p>
+    <div class="q">${qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true })}</div>
+    <p class="s">Pide y paga desde el móvil. Te avisamos por WhatsApp cuando esté listo.</p><p class="u">${esc(url)}</p></div>
+    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`);
+  w.document.close();
+}
+</script>
+</body>
+</html>
