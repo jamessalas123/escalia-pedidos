@@ -87,6 +87,17 @@ td{padding:14px 16px;border-top:1px solid var(--linea);vertical-align:middle}
 .vacio{padding:40px;text-align:center;color:var(--gris);border:1px dashed var(--borde);border-radius:12px}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:12px 18px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 #toast.ver{opacity:1}
+.nav{display:flex;gap:4px;margin-left:18px}
+.nav a{padding:8px 12px;border-radius:8px;text-decoration:none;font-size:15px;color:var(--gris)}
+.nav a.on{background:var(--suave);color:#000;font-weight:600}
+.baja{border:1px solid var(--linea);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.pasos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.paso{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:10px;background:#FAFAFA}
+.paso .num{width:28px;height:28px;flex:none;border-radius:14px;background:#fff;border:2px solid var(--borde);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.paso.hecho .num{background:var(--verde);border-color:var(--verde);color:#fff}
+.paso .cuerpo{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.paso .cuerpo p{font-size:14px;color:var(--gris)}
+.peligro{background:var(--rojo)!important;color:#fff!important}
 </style>
 </head>
 <body>
@@ -114,7 +125,8 @@ async function copiar(texto){
   aviso('Copiado');
 }
 function barra(){
-  return `<header class="barra"><b>Escalia Digital</b><span class="sub" style="font-size:14px">${esc(usuario?.email)} <button class="salir" id="salir">Salir</button></span></header>`;
+  const v = location.hash.replace('#','').split('/')[0];
+  return `<header class="barra"><div class="fila" style="gap:0"><b>Escalia Digital</b><nav class="nav"><a href="#" class="${v === 'bajas' ? '' : 'on'}">Negocios</a><a href="#bajas" class="${v === 'bajas' ? 'on' : ''}">Bajas</a></nav></div><span class="sub" style="font-size:14px">${esc(usuario?.email)} <button class="salir" id="salir">Salir</button></span></header>`;
 }
 function pintar(html){
   app.innerHTML = barra() + `<main>${html}</main>`;
@@ -146,6 +158,7 @@ function ruta(){
   if (v === 'nuevo') return vistaNuevo();
   if (v === 'carta' && id) return vistaCarta(id);
   if (v === 'publicado' && id) return vistaPublicado(id);
+  if (v === 'bajas') return id === 'nueva' ? vistaNuevaBaja() : vistaBajas();
   return vistaNegocios();
 }
 (async () => {
@@ -200,16 +213,18 @@ function vistaSinPermiso(){
 /* ---------- Negocios ---------- */
 async function vistaNegocios(){
   pintar('<p class="sub">Cargando negocios…</p>');
-  const [{ data: negocios, error }, { data: pedidos }] = await Promise.all([
+  const [{ data: negocios, error }, { data: pedidos }, { data: bajas }] = await Promise.all([
     sb.from('negocios').select('id,nombre,slug,logo_url,activo,es_plantilla,stripe_account_id,productos(count)').order('creado_en'),
-    sb.from('pedidos').select('negocio_id').eq('fecha', hoy()).neq('estado', 'pendiente_pago')
+    sb.from('pedidos').select('negocio_id').eq('fecha', hoy()).neq('estado', 'pendiente_pago'),
+    sb.from('bajas').select('negocio_id').is('borrado_en', null).is('cancelada_en', null)
   ]);
+  const enBaja = new Set((bajas || []).map(b => b.negocio_id));
   if (error) return pintar(`<p class="error">No se pudieron cargar los negocios: ${esc(error.message)}</p>`);
   const porNegocio = {}; (pedidos || []).forEach(p => porNegocio[p.negocio_id] = (porNegocio[p.negocio_id] || 0) + 1);
   const reales = negocios.filter(n => !n.es_plantilla), plantilla = negocios.find(n => n.es_plantilla);
   const filas = reales.map(n => `<tr>
     <td><div class="fila"><span class="logo" ${bg(n.logo_url)}>${n.logo_url ? '' : 'Logo'}</span><div style="display:flex;flex-direction:column"><b>${esc(n.nombre)}</b><a class="sub" href="${esc(enlace(n.slug))}" target="_blank" rel="noopener" style="text-decoration:none">/${esc(n.slug)}</a></div></div></td>
-    <td>${n.activo ? '<span class="chip ok">Publicado</span>' : '<span class="chip">Borrador</span>'}</td>
+    <td>${enBaja.has(n.id) ? '<a class="chip aviso" href="#bajas" style="text-decoration:none">Baja en curso</a>' : n.activo ? '<span class="chip ok">Publicado</span>' : '<span class="chip">Borrador</span>'}</td>
     <td>${n.productos?.[0]?.count ?? 0} productos</td>
     <td>${n.stripe_account_id ? '<span class="chip ok">Conectado</span>' : '<span class="chip aviso">Sin conectar</span>'}</td>
     <td>${porNegocio[n.id] || 0}</td>
@@ -437,6 +452,167 @@ async function publicar(n, conPrecio, total){
   const { error } = await sb.from('negocios').update({ activo: true }).eq('id', n.id);
   if (error) { boton.disabled = false; return aviso('No se pudo publicar'); }
   location.hash = `publicado/${n.id}`;
+}
+
+/* ---------- Bajas ---------- */
+const fechaES = d => d ? new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }) : '';
+const masDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+async function vistaBajas(){
+  pintar('<p class="sub">Cargando bajas…</p>');
+  const { data, error } = await sb.from('bajas').select('*').order('creado_en', { ascending: false });
+  if (error) return pintar(`<h1>Bajas</h1><p class="error">No se pudieron cargar las bajas. ${esc(error.message)}</p>`);
+  const abiertas = data.filter(b => !b.borrado_en && !b.cancelada_en), cerradas = data.filter(b => b.borrado_en || b.cancelada_en);
+  pintar(`
+    <div class="cabeza"><div><h1>Bajas</h1><p class="sub">Cuando un negocio deja el servicio: desactivar, entregarle sus datos y borrarlo todo.</p></div>
+      <a class="btn" href="#bajas/nueva">+ Registrar una baja</a></div>
+    ${abiertas.length ? abiertas.map(tarjetaBaja).join('') : '<div class="vacio">No hay bajas en curso.</div>'}
+    ${cerradas.length ? `<h2>Historial</h2><div class="tabla"><table style="min-width:560px"><thead><tr><th>Negocio</th><th>Solicitada</th><th>Resultado</th></tr></thead><tbody>
+      ${cerradas.map(b => `<tr><td><b>${esc(b.negocio_nombre)}</b></td><td>${fechaES(b.solicitada_en)}</td><td>${b.borrado_en ? `Datos entregados ${b.entregado_en ? 'el ' + fechaES(b.entregado_en) : '(no se pidieron)'} · borrado el ${fechaES(b.borrado_en)}` : `Cancelada el ${fechaES(b.cancelada_en)}`}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}`);
+  abiertas.forEach(b => conectarBaja(b));
+}
+function tarjetaBaja(b){
+  const hoyISO = hoy();
+  const limiteBorrado = masDias(b.efectiva_en, 30);
+  const puedeBorrar = !!b.entregado_en || hoyISO >= limiteBorrado;
+  const paso = (n, hecho, titulo, texto, accion) => `<li class="paso ${hecho ? 'hecho' : ''}"><span class="num">${hecho ? '✓' : n}</span><div class="cuerpo"><b>${titulo}</b><p>${texto}</p>${accion || ''}</div></li>`;
+  return `<section class="baja" id="b-${b.id}">
+    <div class="cabeza"><div><h2 style="font-size:20px">${esc(b.negocio_nombre)}</h2>
+      <p class="sub" style="font-size:14px">Pidió la baja el ${fechaES(b.solicitada_en)} · fin del servicio el <b style="color:#000">${fechaES(b.efectiva_en)}</b>${b.motivo ? ' · Motivo: ' + esc(b.motivo) : ''}</p></div>
+      <button class="btn claro peq" data-accion="cancelar">Cancelar la baja</button></div>
+    <ol class="pasos">
+      ${paso(1, !!b.desactivado_en, 'Desactivar su carta',
+        b.desactivado_en ? `Hecho el ${fechaES(b.desactivado_en)}. Los clientes ya no pueden pedir.` : `Hazlo el ${fechaES(b.efectiva_en)}, cuando termine el preaviso. Su carta y su panel dejan de funcionar.`,
+        b.desactivado_en ? '' : '<div><button class="btn peq" data-accion="desactivar">Desactivar ahora</button></div>')}
+      ${paso(2, !!b.descargado_en, 'Descargar sus datos',
+        `Un Excel con su carta, sus opciones y sus pedidos. Los nombres y WhatsApp de pedidos de más de 30 días ya no salen porque se borran solos.${b.descargado_en ? ' Descargado el ' + fechaES(b.descargado_en) + '.' : ''}`,
+        '<div><button class="btn peq" data-accion="descargar">Descargar Excel</button></div>')}
+      ${paso(3, !!b.entregado_en, 'Enviárselos al dueño',
+        b.entregado_en ? `Entregado el ${fechaES(b.entregado_en)} a ${esc(b.email_entrega || '')}.` : 'Abre el correo con el texto ya escrito, <b>adjunta el Excel</b> que has descargado y envíalo. Después márcalo como entregado.',
+        b.entregado_en ? '' : `<div class="fila" style="flex-wrap:wrap;gap:8px"><input type="email" data-campo="email" value="${esc(b.email_entrega || '')}" placeholder="correo del dueño" style="height:38px;padding:0 10px;border-radius:8px;border:1px solid var(--borde);min-width:220px"><button class="btn claro peq" data-accion="correo">Abrir correo</button><button class="btn peq" data-accion="entregado">Marcar como entregado</button></div>`)}
+      ${paso(4, false, 'Borrar todos sus datos',
+        puedeBorrar ? 'Borra para siempre su carta, sus pedidos, sus fotos, sus copias y la cuenta del dueño. No se puede deshacer. Antes, asegúrate de haber guardado el Excel.' : `Disponible cuando hayas entregado los datos o, si no los pide, a partir del ${fechaES(limiteBorrado)} (30 días después del fin del servicio).`,
+        puedeBorrar ? `<div class="fila" style="flex-wrap:wrap;gap:8px"><input data-campo="confirmar" placeholder="Escribe: ${esc(b.negocio_slug)}" style="height:38px;padding:0 10px;border-radius:8px;border:1px solid var(--borde);min-width:220px"><button class="btn peq peligro" data-accion="borrar">Borrar todo</button></div>` : '')}
+    </ol>
+    <label class="campo" style="font-weight:500">Notas<textarea data-campo="notas" rows="2" placeholder="Ej.: lo pidió por WhatsApp el día…">${esc(b.notas || '')}</textarea></label>
+  </section>`;
+}
+function conectarBaja(b){
+  const caja = document.getElementById('b-' + b.id);
+  const q = sel => caja.querySelector(sel);
+  const guardar = async cambios => { const { error } = await sb.from('bajas').update(cambios).eq('id', b.id); if (error) { aviso('No se pudo guardar'); return false; } return true; };
+  q('[data-campo="notas"]').onchange = async e => { if (await guardar({ notas: e.target.value.trim() || null })) aviso('Nota guardada'); };
+  q('[data-accion="cancelar"]').onclick = async e => {
+    if (!e.target.dataset.seguro) { e.target.dataset.seguro = 1; e.target.textContent = '¿Seguro? Se reactiva su carta'; return; }
+    await sb.from('negocios').update({ activo: true }).eq('id', b.negocio_id);
+    if (await guardar({ cancelada_en: new Date().toISOString() })) { aviso('Baja cancelada'); vistaBajas(); }
+  };
+  const desact = q('[data-accion="desactivar"]');
+  if (desact) desact.onclick = async () => {
+    const { error } = await sb.from('negocios').update({ activo: false, pedidos_online_activos: false }).eq('id', b.negocio_id);
+    if (error) return aviso('No se pudo desactivar');
+    if (await guardar({ desactivado_en: new Date().toISOString() })) { aviso('Carta desactivada'); vistaBajas(); }
+  };
+  q('[data-accion="descargar"]').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = 'Preparando…';
+    try { await descargarExcel(b); await guardar({ descargado_en: new Date().toISOString() }); aviso('Excel descargado'); vistaBajas(); }
+    catch (x) { aviso('No se pudo descargar: ' + x.message); e.target.disabled = false; e.target.textContent = 'Descargar Excel'; }
+  };
+  const correo = q('[data-accion="correo"]');
+  if (correo) correo.onclick = async () => {
+    const email = q('[data-campo="email"]').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return aviso('Escribe un correo válido');
+    await guardar({ email_entrega: email });
+    const asunto = `Tus datos de ${b.negocio_nombre} — fin del servicio de pedidos online`;
+    const cuerpo = `Hola:\n\nComo pediste, el servicio de pedidos online de ${b.negocio_nombre} terminó el ${fechaES(b.efectiva_en)}.\n\nTe adjunto un Excel con tus datos: tu carta (productos, precios y opciones) y tu historial de pedidos. Por la política de privacidad, el nombre y el WhatsApp de los clientes se borran a los 30 días de cada pedido, así que en los pedidos más antiguos no aparecen.\n\nEn los próximos días borraré de forma definitiva todos tus datos de la plataforma, como dice nuestro contrato. Si necesitas algo antes, respóndeme a este correo.\n\nGracias por la confianza.\n\nJames Salazar\ncontacto@escaliadigital.com`;
+    location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  };
+  const ent = q('[data-accion="entregado"]');
+  if (ent) ent.onclick = async () => {
+    if (!b.descargado_en) return aviso('Primero descarga el Excel (paso 2)');
+    const email = q('[data-campo="email"]').value.trim();
+    if (await guardar({ entregado_en: new Date().toISOString(), email_entrega: email || b.email_entrega })) { aviso('Marcado como entregado'); vistaBajas(); }
+  };
+  const borrar = q('[data-accion="borrar"]');
+  if (borrar) borrar.onclick = async () => {
+    const conf = q('[data-campo="confirmar"]').value.trim();
+    if (conf !== b.negocio_slug) return aviso(`Escribe exactamente: ${b.negocio_slug}`);
+    borrar.disabled = true; borrar.textContent = 'Borrando…';
+    try {
+      const { data: archivos } = await sb.storage.from('fotos').list(b.negocio_id, { limit: 1000 });
+      if (archivos?.length) await sb.storage.from('fotos').remove(archivos.map(a => `${b.negocio_id}/${a.name}`));
+      const { error } = await sb.rpc('borrar_negocio', { p_negocio: b.negocio_id, p_confirmacion: conf });
+      if (error) throw error;
+      aviso('Datos borrados'); vistaBajas();
+    } catch (x) { aviso('No se pudo borrar: ' + x.message); borrar.disabled = false; borrar.textContent = 'Borrar todo'; }
+  };
+}
+let xlsxCargado;
+function cargarXLSX(){
+  return xlsxCargado ||= new Promise((ok, ko) => { const s = document.createElement('script'); s.src = '/vendor/xlsx.js'; s.onload = ok; s.onerror = () => ko(new Error('no se cargó la librería')); document.head.appendChild(s); });
+}
+async function descargarExcel(b){
+  const [{ data, error }] = await Promise.all([sb.rpc('exportar_negocio', { p_negocio: b.negocio_id }), cargarXLSX()]);
+  if (error) throw error;
+  const n = data.negocio || {}, cats = Object.fromEntries((data.categorias || []).map(c => [c.id, c.nombre]));
+  const prods = Object.fromEntries((data.productos || []).map(p => [p.id, p.nombre]));
+  const grupos = Object.fromEntries((data.grupos_opciones || []).map(g => [g.id, g]));
+  const peds = Object.fromEntries((data.pedidos || []).map(p => [p.id, p]));
+  const hoja = filas => XLSX.utils.json_to_sheet(filas.length ? filas : [{ 'Sin datos': '' }]);
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja([
+    { Campo: 'Negocio', Valor: n.nombre }, { Campo: 'Dirección', Valor: n.direccion }, { Campo: 'WhatsApp', Valor: n.whatsapp },
+    { Campo: 'Titular', Valor: n.titular_nombre }, { Campo: 'NIF', Valor: n.titular_nif }, { Campo: 'Correo', Valor: n.email_contacto },
+    { Campo: 'Horario', Valor: n.horario?.texto }, { Campo: 'Página', Valor: enlace(n.slug || '') }, { Campo: 'Exportado el', Valor: new Date().toLocaleString('es-ES') }
+  ]), 'Negocio');
+  XLSX.utils.book_append_sheet(libro, hoja((data.productos || []).map(p => ({
+    Categoría: cats[p.categoria_id] || '', Producto: p.nombre, Descripción: p.descripcion || '', 'Precio (€)': Number(p.precio),
+    Disponible: p.disponible ? 'Sí' : 'No', Alérgenos: (p.alergenos || []).join(', '), Foto: p.foto_url ? (p.foto_url.startsWith('/') ? location.origin + p.foto_url : p.foto_url) : ''
+  }))), 'Carta');
+  XLSX.utils.book_append_sheet(libro, hoja((data.opciones || []).map(o => {
+    const g = grupos[o.grupo_id] || {};
+    return { Producto: prods[g.producto_id] || '', Grupo: g.nombre || '', Opción: o.nombre, 'Precio extra (€)': Number(o.precio_extra || 0), Disponible: o.disponible ? 'Sí' : 'No' };
+  })), 'Opciones');
+  XLSX.utils.book_append_sheet(libro, hoja((data.pedidos || []).map(p => ({
+    Pedido: p.codigo, Fecha: p.fecha, Hora: new Date(p.creado_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
+    Origen: p.origen, Estado: p.estado, 'Total (€)': Number(p.total || 0), Pagado: p.pagado ? 'Sí' : 'No', 'Método de pago': p.metodo_pago || '',
+    Cliente: p.cliente_nombre || '', WhatsApp: p.cliente_telefono || '', Notas: p.notas || ''
+  }))), 'Pedidos');
+  XLSX.utils.book_append_sheet(libro, hoja((data.lineas_pedido || []).map(l => ({
+    Pedido: peds[l.pedido_id]?.codigo || '', Fecha: peds[l.pedido_id]?.fecha || '', Producto: l.nombre_producto, Cantidad: l.cantidad,
+    'Precio unidad (€)': Number(l.precio_unitario || 0), 'Subtotal (€)': Number(l.subtotal || 0),
+    Opciones: Array.isArray(l.opciones) ? l.opciones.map(o => o.nombre || o).join(', ') : '', Observaciones: l.observaciones || ''
+  }))), 'Líneas de pedidos');
+  XLSX.writeFile(libro, `datos-${b.negocio_slug}-${hoy()}.xlsx`);
+}
+async function vistaNuevaBaja(){
+  pintar('<p class="sub">Cargando…</p>');
+  const [{ data: negs }, { data: abiertas }] = await Promise.all([
+    sb.from('negocios').select('id,nombre,slug,email_contacto').eq('es_plantilla', false).order('nombre'),
+    sb.from('bajas').select('negocio_id').is('borrado_en', null).is('cancelada_en', null)
+  ]);
+  const ocupados = new Set((abiertas || []).map(x => x.negocio_id));
+  const libres = (negs || []).filter(x => !ocupados.has(x.id));
+  const hoyISO = hoy();
+  pintar(`
+    <div><a class="volver" href="#bajas">← Bajas</a><h1 style="margin-top:6px">Registrar una baja</h1><p class="sub">Según el contrato, la baja se pide con 15 días de preaviso.</p></div>
+    ${libres.length ? `<form id="fb" class="rejilla">
+      <label class="campo ancho">Negocio<select id="b_neg" required style="height:48px;padding:0 10px;border-radius:8px;border:1px solid var(--borde);font-size:15px">${libres.map(x => `<option value="${x.id}">${esc(x.nombre)}</option>`).join('')}</select></label>
+      <label class="campo">Día que la pidió<input id="b_sol" type="date" value="${hoyISO}" required></label>
+      <label class="campo">Fin del servicio<input id="b_ef" type="date" value="${masDias(hoyISO, 15)}" required><span class="ayuda">Por defecto, 15 días después.</span></label>
+      <label class="campo ancho">Motivo (opcional)<input id="b_mot" maxlength="200"></label>
+      <div class="ancho acciones"><button class="btn" type="submit">Registrar baja</button><a class="btn claro" href="#bajas">Cancelar</a></div>
+    </form>` : '<div class="vacio">No hay negocios a los que dar de baja.</div>'}`);
+  const f = document.getElementById('fb'); if (!f) return;
+  document.getElementById('b_sol').onchange = e => { document.getElementById('b_ef').value = masDias(e.target.value, 15); };
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const neg = libres.find(x => x.id === document.getElementById('b_neg').value);
+    const { error } = await sb.from('bajas').insert({ negocio_id: neg.id, negocio_nombre: neg.nombre, negocio_slug: neg.slug, email_entrega: neg.email_contacto,
+      solicitada_en: document.getElementById('b_sol').value, efectiva_en: document.getElementById('b_ef').value, motivo: document.getElementById('b_mot').value.trim() || null });
+    if (error) return aviso('No se pudo registrar: ' + error.message);
+    location.hash = 'bajas';
+  };
 }
 
 /* ---------- Publicado: enlace, texto, QR ---------- */
