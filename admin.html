@@ -299,7 +299,7 @@ async function vistaCarta(id){
 function pintarCarta(){
   const { negocio: n, cats, prods, sel } = carta;
   const conPrecio = prods.filter(x => Number(x.precio) > 0).length;
-  const nav = cats.map(c => `<button data-cat="${c.id}" class="${sel === c.id ? 'activa' : ''}">${esc(c.nombre)}<small>${prods.filter(x => x.categoria_id === c.id).length}</small></button>`).join('');
+  const nav = cats.map(c => `<button data-cat="${c.id}" class="${sel === c.id ? 'activa' : ''}">${esc(c.nombre)}${c.activa ? '' : ' <small>(oculta)</small>'}<small>${prods.filter(x => x.categoria_id === c.id).length}</small></button>`).join('');
   pintar(`
     <div class="cabeza">
       <div class="fila" style="flex-wrap:wrap"><a class="volver" href="#">← Negocios</a><b style="font-size:20px">${esc(n.nombre)}</b>
@@ -327,7 +327,9 @@ function pintarProductos(){
   const lista = prods.filter(x => x.categoria_id === sel);
   const caja = document.getElementById('prods');
   caja.innerHTML = `
-    <div class="cabeza"><h1 style="font-size:22px">${esc(cat?.nombre || '')}</h1><button class="btn claro peq" id="nuevoProd">+ Añadir producto</button></div>
+    <div class="cabeza"><div class="fila" style="flex-wrap:wrap"><h1 style="font-size:22px">${esc(cat?.nombre || '')}</h1>
+      <label class="check"><input type="checkbox" id="catVisible" ${cat?.activa ? 'checked' : ''}>${cat?.activa ? 'Visible en la carta' : 'Oculta en la carta'}</label></div>
+      <button class="btn claro peq" id="nuevoProd">+ Añadir producto</button></div>
     ${lista.length ? '' : '<div class="vacio">No hay productos en esta categoría.</div>'}
     ${lista.map(x => `<div class="prod ${x.disponible ? '' : 'agotado'}" data-id="${x.id}">
       <div class="foto"><span class="img" ${bg(x.foto_url)}>${x.foto_url ? '' : 'Sin foto'}</span>
@@ -346,6 +348,12 @@ function pintarProductos(){
       </div>
     </div>`).join('')}`;
   document.getElementById('nuevoProd').onclick = nuevoProducto;
+  document.getElementById('catVisible').onchange = async e => {
+    const activa = e.target.checked;
+    const { error } = await sb.from('categorias').update({ activa }).eq('id', cat.id);
+    if (error) { e.target.checked = !activa; return aviso('No se pudo cambiar'); }
+    cat.activa = activa; aviso(activa ? 'Categoría visible en la carta' : 'Categoría oculta'); pintarCarta();
+  };
   caja.querySelectorAll('.prod').forEach(fila => {
     const id = fila.dataset.id, prod = carta.prods.find(x => x.id === id);
     fila.querySelectorAll('[data-campo]').forEach(el => el.onchange = () => guardarCampo(prod, el));
