@@ -149,7 +149,7 @@ function render() {
     }).join('')}
     <div style="padding:28px 16px 0"><button class="lnk" id="al2">Información sobre alérgenos</button></div>
     <nav class="pie" aria-label="Información legal">${LEGALES.map(([k, t]) => `<button class="lnk" data-legal="${k}">${t}</button>`).join('')}</nav>
-    <p class="muted" style="padding:10px 16px 0;font-size:12px">Plataforma de pedidos: Escalia Digital</p>
+    <p class="muted" style="padding:10px 16px 0;font-size:12px">Plataforma de pedidos: Escalia Digital · James Salazar</p>
   </div>`;
   document.querySelectorAll('[data-legal]').forEach(b => b.onclick = () => abrirLegal(b.dataset.legal));
   document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => abrirFicha(b.dataset.p));
@@ -305,6 +305,7 @@ function abrirPedido() {
 
 const LEGALES = [['aviso', 'Aviso legal'], ['privacidad', 'Privacidad'], ['condiciones', 'Condiciones de compra'], ['terminos', 'Términos de uso'], ['cookies', 'Cookies']];
 const ACTUALIZADO = '2 de noviembre de 2026';
+const PLATAFORMA = 'James Salazar, persona física, que utiliza la denominación Escalia Digital (no registrada)';
 function textoLegal(k) {
   const pend = t => `<em>[${t} pendiente]</em>`;
   const tit = N.titular_nombre ? esc(N.titular_nombre) : pend('nombre o razón social del titular');
@@ -317,8 +318,8 @@ function textoLegal(k) {
       <p>En cumplimiento de la Ley 34/2002, de servicios de la sociedad de la información (LSSI), se informa de los datos del titular de esta carta online:</p>
       <ul><li><strong>Titular:</strong> ${tit}</li><li><strong>NIF:</strong> ${nif}</li><li><strong>Establecimiento:</strong> ${neg}</li><li><strong>Dirección:</strong> ${dir}</li><li><strong>Contacto:</strong> ${contacto}</li></ul>
       <p><strong>Actividad:</strong> venta de comida preparada para recoger en el local, con pedido y pago por adelantado a través de esta web.</p>
-      <p><strong>Plataforma:</strong> esta carta funciona con el servicio de pedidos de Escalia Digital, que la presta al titular. Escalia Digital no vende los productos ni recibe el dinero de los pedidos.</p>
-      <p>El nombre, el logo, las fotos y los contenidos de la carta pertenecen al titular o se usan con su autorización. El diseño y el software de la plataforma pertenecen a Escalia Digital. No se permite copiarlos ni reutilizarlos sin permiso.</p>`],
+      <p><strong>Plataforma:</strong> esta carta funciona con el servicio de pedidos que presta al titular ${PLATAFORMA}. El prestador de la plataforma no vende los productos ni recibe el dinero de los pedidos.</p>
+      <p>El nombre, el logo, las fotos y los contenidos de la carta pertenecen al titular o se usan con su autorización. El diseño y el software de la plataforma pertenecen a James Salazar (Escalia Digital). No se permite copiarlos ni reutilizarlos sin permiso.</p>`],
     privacidad: ['Política de privacidad', `
       <h2>Quién es el responsable</h2><p>${tit} (NIF ${nif}), titular de ${neg}, ${dir}. Contacto: ${contacto}.</p>
       <h2>Qué datos pedimos</h2><p>Al hacer un pedido: tu <strong>nombre</strong>, tu <strong>número de WhatsApp</strong>, los productos que pides, tus observaciones e instrucciones, el importe y la fecha. Los datos de tu tarjeta o de Bizum los introduces directamente en la pasarela de pago; nosotros no los vemos ni los guardamos.</p>
@@ -326,7 +327,7 @@ function textoLegal(k) {
       <h2>Cuánto tiempo los guardamos</h2><p>Tu nombre, tu WhatsApp y tus observaciones se borran automáticamente <strong>a los 30 días</strong> del pedido. El resto del pedido (productos, importe y fecha) se conserva sin datos tuyos durante el tiempo que exige la normativa fiscal y contable.</p>
       <h2>Quién más trata tus datos</h2><p>Proveedores que nos prestan el servicio y que solo tratan los datos por nuestra cuenta:</p>
       <table><thead><tr><th>Proveedor</th><th>Para qué</th><th>Dónde</th></tr></thead><tbody>
-        <tr><td>Escalia Digital</td><td>Plataforma de pedidos (encargado del tratamiento)</td><td>España</td></tr>
+        <tr><td>${PLATAFORMA}</td><td>Plataforma de pedidos (encargado del tratamiento)</td><td>España</td></tr>
         <tr><td>Supabase</td><td>Base de datos donde se guardan los pedidos</td><td>Unión Europea (París)</td></tr>
         <tr><td>Vercel</td><td>Alojamiento de esta web; ve la dirección IP de quien la visita</td><td>Servidores en París y red mundial; empresa de EE. UU.</td></tr>
         <tr><td>Entidad de pago del establecimiento</td><td>Cobro del pedido con tarjeta o Bizum</td><td>Según la entidad</td></tr>
@@ -336,7 +337,7 @@ function textoLegal(k) {
       <h2>Tus derechos</h2><p>Puedes pedir acceder a tus datos, corregirlos, borrarlos, limitar su uso, oponerte o llevártelos, escribiendo a ${contacto}. Si crees que no los tratamos bien, puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
       <h2>Datos en tu móvil</h2><p>Si marcas "Recordar mis datos", tu nombre y tu WhatsApp se guardan solo en tu móvil para rellenar el siguiente pedido. Puedes quitarlo desmarcando la casilla. Más información en Cookies.</p>`],
     condiciones: ['Condiciones de compra', `
-      <h2>Quién vende</h2><p>${tit}, titular de ${neg} (${dir}). Escalia Digital solo presta la plataforma.</p>
+      <h2>Quién vende</h2><p>${tit}, titular de ${neg} (${dir}). La plataforma la presta ${PLATAFORMA}, que no vende los productos.</p>
       <h2>Cómo funciona</h2><ul><li>Eliges en la carta, pagas por adelantado y <strong>recoges en el local</strong>. No hay envío a domicilio.</li><li>Los precios incluyen el IVA.</li><li>El pedido queda hecho cuando el pago se confirma. Verás su número (P1, P2…) y te avisaremos por WhatsApp cuando esté listo.</li><li>Para recogerlo, di tu nombre o el número del pedido en el mostrador.</li></ul>
       <h2>Alérgenos</h2><p>La información de alérgenos de cada producto está en la carta. Si tienes una alergia o intolerancia, indícalo en las instrucciones del pedido y consúltalo en el local antes de comer.</p>
       <h2>Cancelaciones y devoluciones</h2><ul><li>Al tratarse de comida preparada al momento y perecedera, <strong>no se aplica el derecho de desistimiento</strong> de 14 días (artículo 103 de la Ley General para la Defensa de los Consumidores y Usuarios).</li><li>Si no podemos preparar tu pedido (por ejemplo, porque se ha agotado un producto), te devolvemos el importe de lo que no se pueda servir.</li><li>Si hay un error en tu pedido o un problema con algún producto, avísanos en el local o en ${contacto} y lo solucionamos.</li><li>Si no recoges un pedido pagado, no se devuelve el importe, salvo acuerdo con el establecimiento.</li></ul>
@@ -344,7 +345,7 @@ function textoLegal(k) {
       <h2>Ley aplicable</h2><p>Estas condiciones se rigen por la ley española.</p>`],
     terminos: ['Términos de uso', `
       <p>Al usar esta carta online aceptas estas normas de uso.</p>
-      <ul><li>La web sirve para consultar la carta y hacer pedidos para recoger en ${neg}. Úsala de buena fe y con datos reales.</li><li>No está permitido hacer pedidos falsos, intentar acceder a partes no públicas de la web ni copiar sus contenidos o su diseño.</li><li>La carta, los precios y la disponibilidad los mantiene el establecimiento y pueden cambiar en cualquier momento. Las fotos son orientativas y la presentación real puede variar.</li><li>Hacemos lo posible para que la web funcione siempre, pero puede haber interrupciones por mantenimiento o por fallos de los servicios de alojamiento, internet o pago. Si no puedes pedir online, puedes hacerlo directamente en el local.</li><li>El establecimiento es responsable de los productos que vende y de la información de su carta. Escalia Digital es responsable del funcionamiento de la plataforma.</li><li>Estos términos se rigen por la ley española.</li></ul>`],
+      <ul><li>La web sirve para consultar la carta y hacer pedidos para recoger en ${neg}. Úsala de buena fe y con datos reales.</li><li>No está permitido hacer pedidos falsos, intentar acceder a partes no públicas de la web ni copiar sus contenidos o su diseño.</li><li>La carta, los precios y la disponibilidad los mantiene el establecimiento y pueden cambiar en cualquier momento. Las fotos son orientativas y la presentación real puede variar.</li><li>Hacemos lo posible para que la web funcione siempre, pero puede haber interrupciones por mantenimiento o por fallos de los servicios de alojamiento, internet o pago. Si no puedes pedir online, puedes hacerlo directamente en el local.</li><li>El establecimiento es responsable de los productos que vende y de la información de su carta. El prestador de la plataforma (${PLATAFORMA}) es responsable de su funcionamiento.</li><li>Estos términos se rigen por la ley española.</li></ul>`],
     cookies: ['Cookies', `
       <p>Esta web <strong>no usa cookies de publicidad ni de analítica</strong>, ni herramientas de seguimiento de terceros. Por eso no te mostramos un aviso de cookies.</p>
       <p>Solo guarda en tu propio móvil la información necesaria para que la web funcione:</p>
