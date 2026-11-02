@@ -424,7 +424,16 @@ function pintarDatos(){
       <label class="campo">Teléfono de contacto<input id="d_telf" type="tel" maxlength="20" value="${esc(n.telefono || '')}" placeholder="Si es distinto del WhatsApp"></label>
       <p class="sub ancho" style="font-size:13px">Dirección de su página: ${esc(location.host)}/${esc(n.slug)} (no se cambia para no romper el QR ya impreso).</p>
       <div class="ancho"><button class="btn" type="submit">Guardar datos</button></div>
-    </form>`;
+    </form>
+    <div class="tarjeta" style="margin-top:8px"><h2>Copia de seguridad</h2>
+      <p class="sub" style="font-size:14px">Cada noche se guarda sola una copia de esta carta (30 días). Para tener otra fuera de la plataforma, descarga un Excel de vez en cuando, por ejemplo una vez al mes, y guárdalo en tu ordenador.</p>
+      <div><button class="btn claro peq" id="d_copia" type="button">Descargar copia (Excel)</button></div></div>`;
+  document.getElementById('d_copia').onclick = async e => {
+    e.target.disabled = true;
+    try { await descargarExcel({ negocio_id: n.id, negocio_slug: n.slug }); aviso('Copia descargada'); }
+    catch (x) { aviso('No se pudo descargar: ' + x.message); }
+    e.target.disabled = false;
+  };
   document.getElementById('fd').onsubmit = async e => {
     e.preventDefault();
     const tel = document.getElementById('d_wa').value.replace(/[\s-]/g, '');
