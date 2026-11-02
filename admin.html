@@ -401,6 +401,12 @@ function pintarDatos(){
       <label class="campo">WhatsApp del negocio<input id="d_wa" type="tel" value="${esc(n.whatsapp || '')}" placeholder="+34 600 000 000"></label>
       <label class="campo">Horario<input id="d_hor" value="${esc(n.horario?.texto || '')}" placeholder="Ej.: L-D 19:00-23:30"></label>
       <div class="campo">Logo<div class="fila"><span class="logo" ${bg(n.logo_url)}>${n.logo_url ? '' : 'Logo'}</span><input id="d_logo" type="file" accept="image/png,image/jpeg,image/webp"></div></div>
+      <h2 class="ancho" style="margin-top:10px">Datos legales del titular</h2>
+      <p class="sub ancho" style="font-size:13px;margin-top:-10px">Salen en el aviso legal, la política de privacidad y las condiciones de compra de su carta. Mientras falten, la carta muestra "pendiente".</p>
+      <label class="campo">Nombre o razón social<input id="d_tit" maxlength="120" value="${esc(n.titular_nombre || '')}" placeholder="Ej.: Nombre y apellidos / Empresa S.L."></label>
+      <label class="campo">NIF / CIF<input id="d_nif" maxlength="15" value="${esc(n.titular_nif || '')}"></label>
+      <label class="campo">Correo de contacto<input id="d_mail" type="email" maxlength="120" value="${esc(n.email_contacto || '')}"></label>
+      <label class="campo">Teléfono de contacto<input id="d_telf" type="tel" maxlength="20" value="${esc(n.telefono || '')}" placeholder="Si es distinto del WhatsApp"></label>
       <p class="sub ancho" style="font-size:13px">Dirección de su página: ${esc(location.host)}/${esc(n.slug)} (no se cambia para no romper el QR ya impreso).</p>
       <div class="ancho"><button class="btn" type="submit">Guardar datos</button></div>
     </form>`;
@@ -409,7 +415,11 @@ function pintarDatos(){
     const tel = document.getElementById('d_wa').value.replace(/[\s-]/g, '');
     if (tel && !/^\+?\d{9,15}$/.test(tel)) return aviso('El WhatsApp no parece válido');
     const cambios = { nombre: document.getElementById('d_nombre').value.trim(), direccion: document.getElementById('d_dir').value.trim() || null, whatsapp: tel || null,
-      horario: document.getElementById('d_hor').value.trim() ? { ...(n.horario || {}), texto: document.getElementById('d_hor').value.trim() } : (n.horario || {}) };
+      horario: document.getElementById('d_hor').value.trim() ? { ...(n.horario || {}), texto: document.getElementById('d_hor').value.trim() } : (n.horario || {}),
+      titular_nombre: document.getElementById('d_tit').value.trim() || null,
+      titular_nif: document.getElementById('d_nif').value.trim().toUpperCase() || null,
+      email_contacto: document.getElementById('d_mail').value.trim() || null,
+      telefono: document.getElementById('d_telf').value.replace(/[\s-]/g, '') || null };
     const archivo = document.getElementById('d_logo').files[0];
     try { if (archivo) cambios.logo_url = await subirFoto(n.id, archivo, 'logo'); } catch (x) { return aviso('No se pudo subir el logo'); }
     const { error } = await sb.from('negocios').update(cambios).eq('id', n.id);
