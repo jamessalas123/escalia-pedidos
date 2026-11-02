@@ -120,13 +120,13 @@ async function load() {
   CATS = c.data || []; PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
   const orden = Object.fromEntries(CATS.map(c => [c.id, c.orden]));
   PRODS.sort((a, b) => (orden[a.categoria_id] ?? 99) - (orden[b.categoria_id] ?? 99) || a.orden - b.orden);
-  cart = cart.filter(l => PRODS.some(x => x.id === l.pid && x.disponible));
+  cart = cart.filter(l => PRODS.some(x => x.id === l.pid && x.disponible && Number(x.precio) > 0));
   render(); bar();
 }
 
 function render() {
   const cats = CATS.filter(c => PRODS.some(p => p.categoria_id === c.id));
-  const dest = ['Menús', 'Platos', 'Tacos'].map(nm => { const c = cats.find(x => x.nombre === nm); return c && PRODS.find(p => p.categoria_id === c.id && p.disponible); }).filter(Boolean);
+  const dest = ['Menús', 'Platos', 'Tacos'].map(nm => { const c = cats.find(x => x.nombre === nm); return c && PRODS.find(p => p.categoria_id === c.id && p.disponible && Number(p.precio) > 0); }).filter(Boolean);
   const portada = (PRODS.find(p => p.foto_url) || {}).foto_url;
   $('app').innerHTML = `<div class="wrap">
     <div class="cover" style="${img(portada)}" role="img" aria-label="Foto de portada"></div>
@@ -160,6 +160,7 @@ function render() {
 function item(p, sinDesc) {
   const n = cart.filter(l => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
   const foto = `<span class="ph" style="${img(p.foto_url)}">${p.disponible ? `<span class="plus">${n || '+'}</span>` : ''}</span>`;
+  if (!(Number(p.precio) > 0)) return `<div class="item off"><div class="t"><span class="name">${esc(p.nombre)}</span><span class="price">Precio por confirmar</span>${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</div><span class="ph" style="${img(p.foto_url)}"></span></div>`;
   if (!p.disponible) return `<div class="item off"><div class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span><span style="font-size:14px;font-weight:500;color:var(--r)">Agotado</span></div>${foto}</div>`;
   return `<button class="item" data-p="${p.id}"><span class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span>${p.descripcion && !sinDesc ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span>${foto}</button>`;
 }
@@ -191,7 +192,7 @@ function abrirAlergenos() {
 }
 
 function abrirFicha(pid) {
-  const p = PRODS.find(x => x.id === pid); if (!p || !p.disponible) return;
+  const p = PRODS.find(x => x.id === pid); if (!p || !p.disponible || !(Number(p.precio) > 0)) return;
   let qty = 1;
   const gs = GRUPOS.filter(g => g.producto_id === p.id);
   const el = $('ficha');
