@@ -149,7 +149,7 @@ function render() {
     }).join('')}
     <div style="padding:28px 16px 0"><button class="lnk" id="al2">Información sobre alérgenos</button></div>
     <nav class="pie" aria-label="Información legal">${LEGALES.map(([k, t]) => `<button class="lnk" data-legal="${k}">${t}</button>`).join('')}</nav>
-    <p class="muted" style="padding:10px 16px 0;font-size:12px">Plataforma de pedidos: James Salazar</p>
+    <p class="muted" style="padding:10px 16px 0;font-size:12px">Plataforma de pedidos: James Salazar · contacto@escaliadigital.com</p>
   </div>`;
   document.querySelectorAll('[data-legal]').forEach(b => b.onclick = () => abrirLegal(b.dataset.legal));
   document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => abrirFicha(b.dataset.p));
@@ -305,7 +305,7 @@ function abrirPedido() {
 
 const LEGALES = [['aviso', 'Aviso legal'], ['privacidad', 'Privacidad'], ['condiciones', 'Condiciones de compra'], ['terminos', 'Términos de uso'], ['cookies', 'Cookies']];
 const ACTUALIZADO = '2 de noviembre de 2026';
-const PLATAFORMA = 'James Salazar, persona física';
+const PLATAFORMA = 'James Salazar, persona física (contacto: <a href="mailto:contacto@escaliadigital.com">contacto@escaliadigital.com</a>)';
 function textoLegal(k) {
   const pend = t => `<em>[${t} pendiente]</em>`;
   const tit = N.titular_nombre ? esc(N.titular_nombre) : pend('nombre o razón social del titular');
