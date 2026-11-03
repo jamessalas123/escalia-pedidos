@@ -108,7 +108,7 @@ const abiertas = () => document.querySelectorAll('.sheet.open').length;
 const lock = () => { document.body.style.overflow = abiertas() ? 'hidden' : ''; };
 
 async function load() {
-  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif').eq('slug', slug).eq('activo', true).maybeSingle();
+  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario').eq('slug', slug).eq('activo', true).maybeSingle();
   if (error || !n) { $('app').innerHTML = '<p class="state">Esta carta no está disponible.</p>'; return; }
   N = n; document.title = n.nombre + ' · Carta';
   const [c, p, g, o] = await Promise.all([
@@ -133,6 +133,7 @@ function render() {
     <div class="info"><h1>${esc(N.nombre)}</h1>
       <p class="muted">${esc(cats.map(c => c.nombre).join(' · '))}</p>
       ${N.direccion ? `<p class="muted">${esc(N.direccion)}</p>` : ''}
+      ${(() => { const e = estadoPedidos(); return e.abierto ? '' : `<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45"><strong>Ahora no aceptamos pedidos online.</strong> ${e.cuando ? 'Volvemos ' + e.cuando + '.' : ''} Puedes ver la carta y preparar tu pedido.</p>`; })()}
       <div class="notes">
         <p class="note">${ICO_BOLSA}Solo para recoger en el local</p>
         <p class="note">${ICO_AVISO}Pide, paga y te avisamos por WhatsApp cuando esté listo</p>
@@ -204,26 +205,31 @@ function abrirFicha(pid) {
       <button class="lnk" id="fal" style="margin-top:10px;color:var(--g)">Alérgenos: ${esc(al)}</button>
       ${gs.map(g => `<div class="sep"></div><fieldset style="border:0;margin:0;padding:0">
         <legend style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 0 6px">
-          <span><span style="font-size:18px;font-weight:700;display:block">${esc(g.nombre)}</span><span class="muted">Elige ${g.maximo}</span></span>
+          <span><span style="font-size:18px;font-weight:700;display:block">${esc(g.nombre)}</span><span class="muted">${g.maximo > 1 ? (g.obligatorio ? 'Elige hasta ' + g.maximo : 'Opcional · elige las que quieras') : (g.obligatorio ? 'Elige 1' : 'Opcional')}</span></span>
           ${g.obligatorio ? `<span class="pill" id="pg${g.id}">Obligatorio</span>` : ''}</legend>
-        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt">${esc(o.nombre)}${Number(o.precio_extra) ? ' (+' + eur(o.precio_extra) + ')' : ''}<input type="radio" name="g${g.id}" value="${o.id}"></label>`).join('')}
+        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"></label>`).join('')}
       </fieldset>`).join('')}
       <div class="sep"></div>
       <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte"></label>
     </div></div>
     <div class="foot"><div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">1</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
-  const upd = () => { $('fq').textContent = qty; $('fa').textContent = 'Añadir · ' + eur(p.precio * qty); };
+  const extraSel = () => [...el.querySelectorAll('input[name^="g"]:checked')].reduce((a, r) => a + Number((OPCS.find(x => x.id === r.value) || {}).precio_extra || 0), 0);
+  const upd = () => { $('fq').textContent = qty; $('fa').textContent = 'Añadir · ' + eur((Number(p.precio) + extraSel()) * qty); };
   upd();
   $('fm').onclick = () => { if (qty > 1) { qty--; upd(); } };
   $('fp').onclick = () => { if (qty < 20) { qty++; upd(); } };
   $('fx').onclick = cerrarFicha;
   $('fal').onclick = abrirAlergenos;
-  el.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; } });
+  el.querySelectorAll('input[name^="g"]').forEach(r => r.onchange = () => {
+    const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; }
+    if (r.type === 'checkbox' && r.checked) { const marcadas = el.querySelectorAll(`input[name="${r.name}"]:checked`); if (marcadas.length > Number(r.dataset.max)) r.checked = false; }
+    upd();
+  });
   $('fa').onclick = () => {
     const ops = []; let ok = true;
     gs.forEach(g => {
-      const r = el.querySelector(`input[name="g${g.id}"]:checked`);
-      if (r) { const o = OPCS.find(x => x.id === r.value); ops.push({ grupo: g.nombre, nombre: o.nombre }); }
+      const marcadas = [...el.querySelectorAll(`input[name="g${g.id}"]:checked`)];
+      if (marcadas.length) marcadas.forEach(r => { const o = OPCS.find(x => x.id === r.value); ops.push({ grupo: g.nombre, nombre: o.nombre, extra: Number(o.precio_extra || 0) }); });
       else if (g.obligatorio) { ok = false; const pg = $('pg' + g.id); pg.classList.add('err'); pg.textContent = 'Elige una opción'; pg.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     });
     if (!ok) return;
@@ -237,7 +243,30 @@ function abrirFicha(pid) {
 }
 function cerrarFicha() { $('ficha').classList.remove('open'); lock(); }
 
-const total = () => cart.reduce((a, l) => a + Number(PRODS.find(p => p.id === l.pid).precio) * l.qty, 0);
+const precioLinea = l => (Number(PRODS.find(p => p.id === l.pid).precio) + (l.ops || []).reduce((a, o) => a + Number(o.extra || 0), 0)) * l.qty;
+
+const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+const aMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function estadoPedidos() {
+  const dias = N.horario?.dias; if (!dias) return { abierto: true };
+  const corte = Number(N.horario.cierre_pedidos_min || 0);
+  const ahora = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+  const min = ahora.getHours() * 60 + ahora.getMinutes(), d = ahora.getDay();
+  const franjas = dia => (dias[DIAS[dia]] || []).map(([a, b]) => [aMin(a), aMin(b) - corte]);
+  for (const [a, b] of franjas(d)) if (min >= a && min < b) return { abierto: true };
+  for (let k = 0; k < 7; k++) {
+    const dia = (d + k) % 7;
+    const sig = franjas(dia).find(([a]) => k > 0 || a > min);
+    if (sig) {
+      const h = (dias[DIAS[dia]].find(([a]) => aMin(a) === sig[0]) || [])[0];
+      return { abierto: false, cuando: k === 0 ? `hoy a las ${h}` : k === 1 ? `mañana a las ${h}` : `el ${DIAS[dia].replace('miercoles', 'miércoles').replace('sabado', 'sábado')} a las ${h}` };
+    }
+  }
+  return { abierto: false, cuando: '' };
+}
+
+const total = () => cart.reduce((a, l) => a + precioLinea(l), 0);
+const difPrecio = v => { v = Number(v || 0); return v > 0 ? ' (+' + eur(v) + ')' : v < 0 ? ' (−' + eur(-v) + ')' : ''; };
 const unidades = () => cart.reduce((a, l) => a + l.qty, 0);
 
 function bar() {
@@ -258,9 +287,10 @@ function abrirPedido() {
     <div style="padding:0 16px">
       ${cart.map((l, i) => {
         const p = PRODS.find(x => x.id === l.pid);
-        const extra = [...l.ops.map(o => o.grupo.replace(/^Elige tu /, '') + ': ' + o.nombre), l.nota].filter(Boolean).join(' · ');
+        const grupos = {}; l.ops.forEach(o => { const k = o.grupo.replace(/^Elige tu /, '').replace(/ \(.*\)$/, ''); (grupos[k] ||= []).push(o.nombre + difPrecio(o.extra)); });
+        const extra = [...Object.entries(grupos).map(([k, v]) => k + ': ' + v.join(', ')), l.nota].filter(Boolean).join(' · ');
         return `<div class="line"><span class="ph" style="${img(p.foto_url, p._v)}"></span>
-          <div style="flex:1;min-width:0"><div class="name">${esc(p.nombre)}</div>${extra ? `<div class="desc">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</div>` : ''}<div style="font-size:14px;margin-top:2px">${eur(p.precio * l.qty)}</div></div>
+          <div style="flex:1;min-width:0"><div class="name">${esc(p.nombre)}</div>${extra ? `<div class="desc">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</div>` : ''}<div style="font-size:14px;margin-top:2px">${eur(precioLinea(l))}</div></div>
           <div class="qty"><button data-m="${i}" aria-label="Quitar uno">−</button><span>${l.qty}</span><button data-a="${i}" aria-label="Añadir uno">+</button></div>
           <button class="del" data-d="${i}" aria-label="Eliminar ${esc(p.nombre)}">${ICO_BORRAR}</button></div>`;
       }).join('')}
@@ -294,6 +324,8 @@ function abrirPedido() {
     const e = $('perr'); e.style.color = '';
     if (!n) { e.textContent = 'Escribe tu nombre.'; $('cn').focus(); return; }
     if (!/^\+?\d{9,15}$/.test(t)) { e.textContent = 'Escribe un número de WhatsApp válido.'; $('ct').focus(); return; }
+    const est = estadoPedidos();
+    if (!est.abierto) { e.textContent = 'Ahora no aceptamos pedidos online' + (est.cuando ? '. Volvemos ' + est.cuando + '.' : '.') + ' ' + (N.horario?.cierre_pedidos_min ? 'Dejamos de aceptarlos ' + N.horario.cierre_pedidos_min + ' minutos antes del cierre.' : ''); return; }
     if (!$('acepto').checked) { e.textContent = 'Marca la casilla para aceptar las condiciones de compra y la política de privacidad.'; $('acepto').focus(); return; }
     try { if ($('recordar').checked) localStorage.setItem('datos-cliente', JSON.stringify({ n, t })); else localStorage.removeItem('datos-cliente'); } catch (x) {}
     e.style.color = 'var(--g)';
