@@ -120,7 +120,9 @@ async function load() {
   CATS = c.data || []; PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
   const orden = Object.fromEntries(CATS.map(c => [c.id, c.orden]));
   PRODS.sort((a, b) => (orden[a.categoria_id] ?? 99) - (orden[b.categoria_id] ?? 99) || a.orden - b.orden);
-  cart = cart.filter(l => PRODS.some(x => x.id === l.pid && x.disponible && Number(x.precio) > 0));
+  cart = cart.filter(l => PRODS.some(x => x.id === l.pid && x.disponible && Number(x.precio) > 0)
+    && (l.ops || l.opciones || []).every(op => OPCS.some(x => x.nombre === op.nombre)));
+  save();
   render(); bar();
 }
 
