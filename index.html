@@ -184,6 +184,8 @@ function abrirAlergenos() {
     <div style="padding:0 16px">
       <p style="margin:8px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45">${con.length ? 'Si tienes alguna alergia o intolerancia, avísanos en las instrucciones del pedido o pregunta en el local.' : 'El local está completando esta información. Si tienes alguna alergia o intolerancia, <strong>pregunta en el local antes de pedir</strong>.'}</p>
       <table class="tabla"><tbody>${PRODS.map(p => `<tr><td>${esc(p.nombre)}</td><td>${(p.alergenos || []).length ? esc(p.alergenos.join(', ')) : 'Consultar en el local'}</td></tr>`).join('')}</tbody></table>
+      ${(() => { const vistos = new Set(); const ops = OPCS.filter(o => (o.alergenos || []).length && !vistos.has(o.nombre) && vistos.add(o.nombre));
+        return ops.length ? `<h2 style="font-size:16px;margin:24px 0 0">Salsas</h2><table class="tabla"><tbody>${ops.map(o => `<tr><td>${esc(o.nombre)}</td><td>${esc(o.alergenos.join(', '))}</td></tr>`).join('')}</tbody></table>` : ''; })()}
       <h2 style="font-size:16px;margin:24px 0 0">Los 14 alérgenos de declaración obligatoria</h2>
       <div class="grid14">${ALERGENOS.map(a => `<span>${a}</span>`).join('')}</div>
     </div></div>`;
