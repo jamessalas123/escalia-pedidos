@@ -109,6 +109,7 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 <script>
 const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
 const slug = location.pathname.split('/').filter(Boolean)[0] || 'kebab-jr';
+{ const m = /^(panel|admin)\W+$/i.exec(slug); if (m) location.replace('/' + m[1].toLowerCase()); }
 const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const img = u => u ? `background-image:url('${esc(u)}')` : '';
