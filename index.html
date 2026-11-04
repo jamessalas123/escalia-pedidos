@@ -22,6 +22,14 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 .dest{display:flex;gap:12px;overflow-x:auto;padding:0 16px 4px;scrollbar-width:none}
 .dcard{flex:none;width:150px;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .ph{position:relative;display:block;background:#EEE center/cover no-repeat;border-radius:12px}
+.ph.fit{background-size:contain;background-color:#fff}
+.sel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px}
+.sel button{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:10px;border:1px solid var(--b);border-radius:12px;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.sel button[disabled]{border:2px solid #000;cursor:default}
+.sel .ph{height:120px;border-radius:8px}
+.sel .tag{font-size:12px;font-weight:600}
+.aviso{margin:6px 16px 14px;padding:12px 14px;border-radius:12px;background:#F3F3F3;font-size:15px;line-height:1.4}
+.btn2{display:block;width:100%;max-width:688px;margin:0 auto 10px;height:46px;border-radius:8px;border:1px solid #000;background:#fff;color:#000;font-size:15px;font-weight:600;cursor:pointer}
 .plus{position:absolute;right:8px;bottom:8px;min-width:34px;height:34px;padding:0 8px;border-radius:17px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.18);font-weight:700}
 .tabs{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:22px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-top:18px}
 .tabs a{flex:none;padding:13px 0 10px;border-bottom:3px solid transparent;color:#000;text-decoration:none;font-size:15px}
@@ -76,7 +84,7 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 .line .ph{width:56px;height:56px;border-radius:8px;flex:none}
 .edit{display:flex;gap:10px;align-items:center;flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .edit .cambiar{font-size:13px;color:var(--g);text-decoration:underline;margin-top:2px}
-.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1}
 .err{color:var(--r);font-size:13px;font-weight:500;margin:8px 0 0}
 .top{display:flex;align-items:center;gap:8px;padding:14px 12px 6px}
@@ -92,6 +100,7 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 <div id="app"><p class="state">Cargando carta…</p></div>
 <div id="ficha" class="sheet" role="dialog" aria-modal="true" aria-label="Producto"></div>
 <div id="pedido" class="sheet" role="dialog" aria-modal="true" aria-label="Tu pedido"></div>
+<div id="elegir" class="sheet" role="dialog" aria-modal="true" aria-label="Cambiar producto"></div>
 <div id="alerg" class="sheet" role="dialog" aria-modal="true" aria-label="Alérgenos"></div>
 <div id="legal" class="sheet" role="dialog" aria-modal="true" aria-label="Información legal"></div>
 <div id="bar" class="bar" hidden></div>
@@ -102,6 +111,16 @@ const slug = location.pathname.split('/').filter(Boolean)[0] || 'kebab-jr';
 const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const img = u => u ? `background-image:url('${esc(u)}')` : '';
+const catDe = p => CATS.find(c => c.id === p.categoria_id) || {};
+const esBebida = p => /bebida/i.test(catDe(p).nombre || '');
+const fit = p => esBebida(p) ? ' fit' : '';
+const OTRO = { 'Tacos': 'otro taco', 'Menús': 'otro menú', 'Durum y Pita': 'otro durum o pita', 'Durum': 'otro durum', 'Platos': 'otro plato', 'Hamburguesas': 'otra hamburguesa', 'Patatas': 'otras patatas', 'Döner Box': 'otro Döner Box', 'Bebidas': 'otra bebida' };
+function reemplazarLinea(idx, linea) {
+  cart.splice(idx, 1);
+  const ex = cart.find(l => l.key === linea.key);
+  if (ex) ex.qty += linea.qty; else cart.splice(Math.min(idx, cart.length), 0, linea);
+  save();
+}
 const ALERGENOS = ['Gluten', 'Crustáceos', 'Huevos', 'Pescado', 'Cacahuetes', 'Soja', 'Lácteos', 'Frutos de cáscara', 'Apio', 'Mostaza', 'Sésamo', 'Sulfitos', 'Altramuces', 'Moluscos'];
 const ICO_BOLSA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>';
 const ICO_AVISO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>';
@@ -173,7 +192,7 @@ function render() {
 
 function item(p, sinDesc) {
   const n = cart.filter(l => l.pid === p.id).reduce((a, l) => a + l.qty, 0);
-  const foto = `<span class="ph" style="${img(p.foto_url)}">${p.disponible ? `<span class="plus">${n || '+'}</span>` : ''}</span>`;
+  const foto = `<span class="ph${fit(p)}" style="${img(p.foto_url)}">${p.disponible ? `<span class="plus">${n || '+'}</span>` : ''}</span>`;
   if (!(Number(p.precio) > 0)) return `<div class="item off"><div class="t"><span class="name">${esc(p.nombre)}</span><span class="price">Precio por confirmar</span>${p.descripcion ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</div><span class="ph" style="${img(p.foto_url)}"></span></div>`;
   if (!p.disponible) return `<div class="item off"><div class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span><span style="font-size:14px;font-weight:500;color:var(--r)">Agotado</span></div>${foto}</div>`;
   return `<button class="item" data-p="${p.id}"><span class="t"><span class="name">${esc(p.nombre)}</span><span class="price">${eur(p.precio)}</span>${p.descripcion && !sinDesc ? `<span class="desc">${esc(p.descripcion)}</span>` : ''}</span>${foto}</button>`;
@@ -207,15 +226,18 @@ function abrirAlergenos() {
   el.classList.add('open'); el.scrollTop = 0; lock();
 }
 
-function abrirFicha(pid, editIdx) {
+function abrirFicha(pid, editIdx, reempIdx) {
   const p = PRODS.find(x => x.id === pid); if (!p || !p.disponible || !(Number(p.precio) > 0)) return;
   const editando = Number.isInteger(editIdx) && cart[editIdx] ? cart[editIdx] : null;
-  let qty = editando ? editando.qty : 1;
+  const reemplaza = Number.isInteger(reempIdx) && cart[reempIdx] ? cart[reempIdx] : null;
+  const volverPedido = editando || reemplaza;
+  let qty = editando ? editando.qty : reemplaza ? reemplaza.qty : 1;
+  const hermanos = PRODS.filter(x => x.categoria_id === p.categoria_id && x.disponible && Number(x.precio) > 0);
   const gs = GRUPOS.filter(g => g.producto_id === p.id);
   const el = $('ficha');
   const al = (p.alergenos || []).length ? p.alergenos.join(', ') : 'consultar en el local';
   el.innerHTML = `<div class="inner">
-    <div style="position:relative"><span class="ph" style="height:300px;border-radius:0;${img(p.foto_url, p._v)}"></span><button class="close" id="fx" aria-label="Cerrar">✕</button></div>
+    <div style="position:relative"><span class="ph${fit(p)}" style="height:300px;border-radius:0;${img(p.foto_url, p._v)}"></span><button class="close" id="fx" aria-label="Cerrar">✕</button></div>
     <div style="padding:18px 16px"><h1 style="font-size:24px">${esc(p.nombre)}</h1>
       <p style="font-size:18px;font-weight:500;margin:6px 0 0">${eur(p.precio)}</p>
       ${p.descripcion ? `<p class="muted" style="font-size:15px">${esc(p.descripcion)}</p>` : ''}
@@ -226,16 +248,17 @@ function abrirFicha(pid, editIdx) {
           ${g.obligatorio ? `<span class="pill" id="pg${g.id}">Obligatorio</span>` : ''}</legend>
         ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"${editando && (editando.ops || []).some(x => x.grupo === g.nombre && x.nombre === o.nombre) ? ' checked' : ''}></label>`).join('')}
       </fieldset>`).join('')}
-      <div class="sep"></div>
-      <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte" value="${esc(editando ? editando.nota || '' : '')}"></label>
+      ${esBebida(p) ? '' : `<div class="sep"></div>
+      <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte" value="${esc(editando ? editando.nota || '' : '')}"></label>`}
     </div></div>
-    <div class="foot"><div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">${qty}</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
+    <div class="foot">${editando && hermanos.length > 1 ? `<button class="btn2" id="frep">↺ Reemplazar por ${esc(OTRO[catDe(p).nombre] || 'otro producto')}</button>` : ''}<div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">${qty}</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
   const extraSel = () => [...el.querySelectorAll('input[name^="g"]:checked')].reduce((a, r) => a + Number((OPCS.find(x => x.id === r.value) || {}).precio_extra || 0), 0);
-  const upd = () => { $('fq').textContent = qty; $('fa').textContent = (editando ? 'Guardar cambios · ' : 'Añadir · ') + eur((Number(p.precio) + extraSel()) * qty); };
+  const upd = () => { $('fq').textContent = qty; $('fa').textContent = (editando ? 'Guardar cambios · ' : reemplaza ? 'Reemplazar · ' : 'Añadir · ') + eur((Number(p.precio) + extraSel()) * qty); };
   upd();
   $('fm').onclick = () => { if (qty > 1) { qty--; upd(); } };
   $('fp').onclick = () => { if (qty < 20) { qty++; upd(); } };
-  $('fx').onclick = () => { cerrarFicha(); if (editando) abrirPedido(); };
+  $('fx').onclick = () => { cerrarFicha(); if (volverPedido) abrirPedido(); };
+  if ($('frep')) $('frep').onclick = () => { cerrarFicha(); abrirSelector(editIdx); };
   $('fal').onclick = abrirAlergenos;
   el.querySelectorAll('input[name^="g"]').forEach(r => r.onchange = () => {
     const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; }
@@ -250,14 +273,15 @@ function abrirFicha(pid, editIdx) {
       else if (g.obligatorio) { ok = false; const pg = $('pg' + g.id); pg.classList.add('err'); pg.textContent = 'Elige una opción'; pg.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     });
     if (!ok) return;
-    const nota = $('fn').value.trim();
+    const nota = $('fn') ? $('fn').value.trim() : '';
     const key = p.id + '|' + ops.map(o => o.nombre).join(',') + '|' + nota;
     const linea = { key, pid: p.id, qty, ops, nota };
-    if (editando) {
-      cart.splice(editIdx, 1);
-      const ex = cart.find(l => l.key === key);
-      if (ex) ex.qty += qty; else cart.splice(editIdx, 0, linea);
-      save(); cerrarFicha(); render(); bar(); abrirPedido(); return;
+    if (editando || reemplaza) {
+      const viejo = PRODS.find(x => x.id === (editando || reemplaza).pid);
+      reemplazarLinea(editando ? editIdx : reempIdx, linea);
+      cerrarFicha(); render(); bar(); abrirPedido();
+      if (reemplaza) aviso('Cambiado por ' + p.nombre + ' ✓');
+      return;
     }
     const ex = cart.find(l => l.key === key);
     if (ex) ex.qty += qty; else cart.push(linea);
@@ -267,6 +291,30 @@ function abrirFicha(pid, editIdx) {
   el.classList.add('open'); el.scrollTop = 0; lock();
 }
 function cerrarFicha() { $('ficha').classList.remove('open'); lock(); }
+
+// Elegir otro producto de la misma sección para sustituir una línea del pedido
+function abrirSelector(idx) {
+  const l = cart[idx]; if (!l) return abrirPedido();
+  const actual = PRODS.find(x => x.id === l.pid);
+  const ps = PRODS.filter(x => x.categoria_id === actual.categoria_id && x.disponible && Number(x.precio) > 0);
+  const el = $('elegir');
+  const volver = () => { el.classList.remove('open'); lock(); abrirPedido(); };
+  el.innerHTML = `<div class="inner">
+    <div class="top"><button class="back" id="sb" aria-label="Volver al pedido sin cambiar">✕</button><h1 style="font-size:22px">Cambiar ${esBebida(actual) ? 'bebida' : 'producto'}</h1></div>
+    <p class="aviso">Tienes: <strong>${esc(actual.nombre)}</strong>${l.qty > 1 ? ' ×' + l.qty : ''}<br>Selecciona por cuál la quieres cambiar.</p>
+    <div class="sel">${ps.map(x => `<button data-s="${x.id}" ${x.id === actual.id ? 'disabled' : ''}><span class="ph${fit(x)}" style="${img(x.foto_url, x._v)}"></span><span class="name">${esc(x.nombre)}</span><span class="price">${eur(x.precio)}</span>${x.id === actual.id ? '<span class="tag">La que tienes</span>' : ''}</button>`).join('')}</div>
+  </div>`;
+  $('sb').onclick = volver;
+  el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+    const np = PRODS.find(x => x.id === b.dataset.s);
+    el.classList.remove('open');
+    if (!GRUPOS.some(g => g.producto_id === np.id)) {
+      reemplazarLinea(idx, { key: np.id + '||', pid: np.id, qty: l.qty, ops: [], nota: '' });
+      lock(); render(); bar(); abrirPedido(); aviso('Cambiado por ' + np.nombre + ' ✓');
+    } else abrirFicha(np.id, null, idx);
+  });
+  el.classList.add('open'); el.scrollTop = 0; lock();
+}
 
 // Tras añadir comida, lleva al cliente a la sección de bebidas (salvo bebidas o productos que ya incluyen bebida)
 function sugerirBebida(p) {
@@ -329,7 +377,7 @@ function abrirPedido() {
         const p = PRODS.find(x => x.id === l.pid);
         const grupos = {}; l.ops.forEach(o => { const k = o.grupo.replace(/^Elige tu /, '').replace(/ \(.*\)$/, ''); (grupos[k] ||= []).push(o.nombre + difPrecio(o.extra)); });
         const extra = [...Object.entries(grupos).map(([k, v]) => k + ': ' + v.join(', ')), l.nota].filter(Boolean).join(' · ');
-        return `<div class="line"><button class="edit" data-e="${i}" aria-label="Cambiar ${esc(p.nombre)}"><span class="ph" style="${img(p.foto_url, p._v)}"></span>
+        return `<div class="line"><button class="edit" data-e="${i}" aria-label="Cambiar ${esc(p.nombre)}"><span class="ph${fit(p)}" style="${img(p.foto_url, p._v)}"></span>
           <span style="flex:1;min-width:0;display:block"><span class="name" style="display:block">${esc(p.nombre)}</span>${extra ? `<span class="desc" style="display:block">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</span>` : ''}<span style="display:block;font-size:14px;margin-top:2px">${eur(precioLinea(l))}</span><span class="cambiar" style="display:block">Cambiar</span></span></button>
           <div class="qty"><button data-m="${i}" aria-label="Quitar uno">−</button><span>${l.qty}</span><button data-a="${i}" aria-label="Añadir uno">+</button></div>
           <button class="del" data-d="${i}" aria-label="Eliminar ${esc(p.nombre)}">${ICO_BORRAR}</button></div>`;
@@ -351,7 +399,7 @@ function abrirPedido() {
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const l = cart[b.dataset.m]; l.qty--; if (!l.qty) cart.splice(b.dataset.m, 1); save(); abrirPedido(); });
   el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { cart[b.dataset.a].qty++; save(); abrirPedido(); });
   el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { cart.splice(b.dataset.d, 1); save(); abrirPedido(); });
-  el.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const i = Number(b.dataset.e); el.classList.remove('open'); abrirFicha(cart[i].pid, i); if (!$('ficha').classList.contains('open')) abrirPedido(); });
+  el.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const i = Number(b.dataset.e); const pr = PRODS.find(x => x.id === cart[i].pid); el.classList.remove('open'); if (esBebida(pr)) return abrirSelector(i); abrirFicha(cart[i].pid, i); if (!$('ficha').classList.contains('open')) abrirPedido(); });
   let confirmar = false;
   $('vaciar').onclick = () => {
     if (!confirmar) { confirmar = true; $('vaciar').textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { confirmar = false; const v = $('vaciar'); if (v) v.textContent = 'Vaciar pedido'; }, 4000); return; }
