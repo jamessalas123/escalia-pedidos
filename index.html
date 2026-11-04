@@ -74,6 +74,10 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 .foot .row{max-width:688px;margin:0 auto;display:flex;gap:12px;align-items:center}
 .line{display:flex;gap:10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--b)}
 .line .ph{width:56px;height:56px;border-radius:8px;flex:none}
+.edit{display:flex;gap:10px;align-items:center;flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.edit .cambiar{font-size:13px;color:var(--g);text-decoration:underline;margin-top:2px}
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
 .err{color:var(--r);font-size:13px;font-weight:500;margin:8px 0 0}
 .top{display:flex;align-items:center;gap:8px;padding:14px 12px 6px}
 .back{width:44px;height:44px;border:0;background:none;font-size:26px;cursor:pointer;flex:none}
@@ -203,9 +207,10 @@ function abrirAlergenos() {
   el.classList.add('open'); el.scrollTop = 0; lock();
 }
 
-function abrirFicha(pid) {
+function abrirFicha(pid, editIdx) {
   const p = PRODS.find(x => x.id === pid); if (!p || !p.disponible || !(Number(p.precio) > 0)) return;
-  let qty = 1;
+  const editando = Number.isInteger(editIdx) && cart[editIdx] ? cart[editIdx] : null;
+  let qty = editando ? editando.qty : 1;
   const gs = GRUPOS.filter(g => g.producto_id === p.id);
   const el = $('ficha');
   const al = (p.alergenos || []).length ? p.alergenos.join(', ') : 'consultar en el local';
@@ -219,18 +224,18 @@ function abrirFicha(pid) {
         <legend style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 0 6px">
           <span><span style="font-size:18px;font-weight:700;display:block">${esc(g.nombre)}</span><span class="muted">${g.maximo > 1 ? (g.obligatorio ? 'Elige hasta ' + g.maximo : 'Opcional · elige las que quieras') : (g.obligatorio ? 'Elige 1' : 'Opcional')}</span></span>
           ${g.obligatorio ? `<span class="pill" id="pg${g.id}">Obligatorio</span>` : ''}</legend>
-        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"></label>`).join('')}
+        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"${editando && (editando.ops || []).some(x => x.grupo === g.nombre && x.nombre === o.nombre) ? ' checked' : ''}></label>`).join('')}
       </fieldset>`).join('')}
       <div class="sep"></div>
-      <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte"></label>
+      <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte" value="${esc(editando ? editando.nota || '' : '')}"></label>
     </div></div>
-    <div class="foot"><div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">1</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
+    <div class="foot"><div class="row"><div class="qty"><button id="fm" aria-label="Quitar uno">−</button><span id="fq">${qty}</span><button id="fp" aria-label="Añadir uno más">+</button></div><button class="btn" id="fa" style="flex:1"></button></div></div>`;
   const extraSel = () => [...el.querySelectorAll('input[name^="g"]:checked')].reduce((a, r) => a + Number((OPCS.find(x => x.id === r.value) || {}).precio_extra || 0), 0);
-  const upd = () => { $('fq').textContent = qty; $('fa').textContent = 'Añadir · ' + eur((Number(p.precio) + extraSel()) * qty); };
+  const upd = () => { $('fq').textContent = qty; $('fa').textContent = (editando ? 'Guardar cambios · ' : 'Añadir · ') + eur((Number(p.precio) + extraSel()) * qty); };
   upd();
   $('fm').onclick = () => { if (qty > 1) { qty--; upd(); } };
   $('fp').onclick = () => { if (qty < 20) { qty++; upd(); } };
-  $('fx').onclick = cerrarFicha;
+  $('fx').onclick = () => { cerrarFicha(); if (editando) abrirPedido(); };
   $('fal').onclick = abrirAlergenos;
   el.querySelectorAll('input[name^="g"]').forEach(r => r.onchange = () => {
     const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; }
@@ -247,13 +252,36 @@ function abrirFicha(pid) {
     if (!ok) return;
     const nota = $('fn').value.trim();
     const key = p.id + '|' + ops.map(o => o.nombre).join(',') + '|' + nota;
+    const linea = { key, pid: p.id, qty, ops, nota };
+    if (editando) {
+      cart.splice(editIdx, 1);
+      const ex = cart.find(l => l.key === key);
+      if (ex) ex.qty += qty; else cart.splice(editIdx, 0, linea);
+      save(); cerrarFicha(); render(); bar(); abrirPedido(); return;
+    }
     const ex = cart.find(l => l.key === key);
-    if (ex) ex.qty += qty; else cart.push({ key, pid: p.id, qty, ops, nota });
+    if (ex) ex.qty += qty; else cart.push(linea);
     save(); cerrarFicha(); render(); bar();
+    sugerirBebida(p);
   };
   el.classList.add('open'); el.scrollTop = 0; lock();
 }
 function cerrarFicha() { $('ficha').classList.remove('open'); lock(); }
+
+// Tras añadir comida, lleva al cliente a la sección de bebidas (salvo bebidas o productos que ya incluyen bebida)
+function sugerirBebida(p) {
+  const cat = CATS.find(c => c.id === p.categoria_id);
+  if (!cat || /bebida/i.test(cat.nombre)) return;
+  if (GRUPOS.some(g => g.producto_id === p.id && /bebida/i.test(g.nombre))) return;
+  const visibles = CATS.filter(c => PRODS.some(x => x.categoria_id === c.id));
+  const i = visibles.findIndex(c => /bebida/i.test(c.nombre)); if (i < 0) return;
+  const sec = $('c' + i); if (!sec) return;
+  setTimeout(() => { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); aviso('Añadido ✓  ¿Algo de beber?'); }, 150);
+}
+function aviso(txt) {
+  let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = txt; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600);
+}
 
 const precioLinea = l => (Number(PRODS.find(p => p.id === l.pid).precio) + (l.ops || []).reduce((a, o) => a + Number(o.extra || 0), 0)) * l.qty;
 
@@ -301,8 +329,8 @@ function abrirPedido() {
         const p = PRODS.find(x => x.id === l.pid);
         const grupos = {}; l.ops.forEach(o => { const k = o.grupo.replace(/^Elige tu /, '').replace(/ \(.*\)$/, ''); (grupos[k] ||= []).push(o.nombre + difPrecio(o.extra)); });
         const extra = [...Object.entries(grupos).map(([k, v]) => k + ': ' + v.join(', ')), l.nota].filter(Boolean).join(' · ');
-        return `<div class="line"><span class="ph" style="${img(p.foto_url, p._v)}"></span>
-          <div style="flex:1;min-width:0"><div class="name">${esc(p.nombre)}</div>${extra ? `<div class="desc">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</div>` : ''}<div style="font-size:14px;margin-top:2px">${eur(precioLinea(l))}</div></div>
+        return `<div class="line"><button class="edit" data-e="${i}" aria-label="Cambiar ${esc(p.nombre)}"><span class="ph" style="${img(p.foto_url, p._v)}"></span>
+          <span style="flex:1;min-width:0;display:block"><span class="name" style="display:block">${esc(p.nombre)}</span>${extra ? `<span class="desc" style="display:block">${esc(extra.charAt(0).toUpperCase() + extra.slice(1))}</span>` : ''}<span style="display:block;font-size:14px;margin-top:2px">${eur(precioLinea(l))}</span><span class="cambiar" style="display:block">Cambiar</span></span></button>
           <div class="qty"><button data-m="${i}" aria-label="Quitar uno">−</button><span>${l.qty}</span><button data-a="${i}" aria-label="Añadir uno">+</button></div>
           <button class="del" data-d="${i}" aria-label="Eliminar ${esc(p.nombre)}">${ICO_BORRAR}</button></div>`;
       }).join('')}
@@ -323,6 +351,7 @@ function abrirPedido() {
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const l = cart[b.dataset.m]; l.qty--; if (!l.qty) cart.splice(b.dataset.m, 1); save(); abrirPedido(); });
   el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { cart[b.dataset.a].qty++; save(); abrirPedido(); });
   el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { cart.splice(b.dataset.d, 1); save(); abrirPedido(); });
+  el.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { const i = Number(b.dataset.e); el.classList.remove('open'); abrirFicha(cart[i].pid, i); if (!$('ficha').classList.contains('open')) abrirPedido(); });
   let confirmar = false;
   $('vaciar').onclick = () => {
     if (!confirmar) { confirmar = true; $('vaciar').textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { confirmar = false; const v = $('vaciar'); if (v) v.textContent = 'Vaciar pedido'; }, 4000); return; }
