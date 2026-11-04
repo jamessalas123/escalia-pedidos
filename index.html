@@ -140,7 +140,7 @@ const lock = () => {
 };
 
 async function load() {
-  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario').eq('slug', slug).eq('activo', true).maybeSingle();
+  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados').eq('slug', slug).eq('activo', true).maybeSingle();
   if (error || !n) { $('app').innerHTML = '<p class="state">Esta carta no está disponible.</p>'; return; }
   N = n; document.title = n.nombre + ' · Carta';
   const [c, p, g, o] = await Promise.all([
@@ -167,7 +167,7 @@ function render() {
     <div class="info"><h1>${esc(N.nombre)}</h1>
       <p class="muted">${esc(cats.map(c => c.nombre).join(' · '))}</p>
       ${N.direccion ? `<p class="muted">${esc(N.direccion)}</p>` : ''}
-      ${(() => { const e = estadoPedidos(); return e.abierto ? '' : `<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45"><strong>Ahora no aceptamos pedidos online.</strong> ${e.cuando ? 'Volvemos ' + e.cuando + '.' : ''} Puedes ver la carta y preparar tu pedido.</p>`; })()}
+      ${(() => { const e = estadoPedidos(); return e.abierto ? '' : `<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45"><strong>${e.pausa ? 'Pedidos online pausados un momento.' : 'Ahora no aceptamos pedidos online.'}</strong> ${e.cuando ? 'Volvemos ' + e.cuando + '.' : ''} Puedes ver la carta y preparar tu pedido.</p>`; })()}
       <div class="notes">
         <p class="note">${ICO_BOLSA}Solo para recoger en el local</p>
         <p class="note">${ICO_AVISO}Pide, paga y te avisamos por WhatsApp cuando esté listo</p>
@@ -337,6 +337,7 @@ const precioLinea = l => (Number(PRODS.find(p => p.id === l.pid).precio) + (l.op
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const aMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 function estadoPedidos() {
+  if (N.pedidos_pausados) return { abierto: false, pausa: true, cuando: '' };
   const dias = N.horario?.dias; if (!dias) return { abierto: true };
   const corte = Number(N.horario.cierre_pedidos_min || 0);
   const ahora = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
@@ -415,6 +416,7 @@ function abrirPedido() {
     if (!n) { e.textContent = 'Escribe tu nombre.'; $('cn').focus(); return; }
     if (!/^\+?\d{9,15}$/.test(t)) { e.textContent = 'Escribe un número de WhatsApp válido.'; $('ct').focus(); return; }
     const est = estadoPedidos();
+    if (est.pausa) { e.textContent = 'En este momento el local ha pausado los pedidos online. Inténtalo de nuevo en un rato o pide en el local.'; return; }
     if (!est.abierto) { e.textContent = 'Ahora no aceptamos pedidos online' + (est.cuando ? '. Volvemos ' + est.cuando + '.' : '.') + ' ' + (N.horario?.cierre_pedidos_min ? 'Dejamos de aceptarlos ' + N.horario.cierre_pedidos_min + ' minutos antes del cierre.' : ''); return; }
     if (!$('acepto').checked) { e.textContent = 'Marca la casilla para aceptar las condiciones de compra y la política de privacidad.'; $('acepto').focus(); return; }
     try { if ($('recordar').checked) localStorage.setItem('datos-cliente', JSON.stringify({ n, t })); else localStorage.removeItem('datos-cliente'); } catch (x) {}

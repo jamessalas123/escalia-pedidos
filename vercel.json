@@ -1,7 +1,1 @@
-{
-  "regions": ["cdg1"],
-  "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
+{"regions": ["cdg1"], "rewrites": [{"source": "/admin", "destination": "/admin.html"}, {"source": "/panel", "destination": "/panel.html"}, {"source": "/(.*)", "destination": "/index.html"}]}

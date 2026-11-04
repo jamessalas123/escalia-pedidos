@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panel del negocio</title>
+<link href="/fonts/inter.css" rel="stylesheet">
+<style>
+:root{--gris:#545454;--linea:#E8E8E8;--suave:#F3F3F3;--borde:#CBCBCB;--verde:#0B7A3E;--rojo:#B42318}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#000;font-family:Inter,system-ui,sans-serif;font-size:16px;-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit;font-size:16px;color:#000}
+p{margin:0}
+h1{margin:0;font-size:24px;font-weight:700}
+h2{margin:0;font-size:18px;font-weight:700}
+.sub{color:var(--gris);font-size:14px}
+.barra{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--linea);position:sticky;top:0;background:#fff;z-index:5}
+.barra b{font-size:17px}
+.lnk{border:none;background:none;color:var(--gris);text-decoration:underline;cursor:pointer;padding:8px;font-size:14px}
+main{max-width:720px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-direction:column;gap:18px}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border-radius:10px;border:none;background:#000;color:#fff;font-weight:600;cursor:pointer}
+.btn.claro{background:var(--suave);color:#000}
+.btn.rojo{background:var(--rojo)}
+.btn.verde{background:var(--verde)}
+.btn:disabled{opacity:.5}
+.campo{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600}
+.campo input{height:50px;padding:0 14px;border-radius:10px;border:1px solid var(--borde);font-weight:400}
+.error{color:var(--rojo);font-size:14px;font-weight:500}
+.acceso{max-width:400px;margin:8vh auto 0;padding:0 20px;display:flex;flex-direction:column;gap:18px}
+.tarjeta{border:1px solid var(--linea);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.estado{display:flex;align-items:center;gap:10px;font-weight:600}
+.punto{width:12px;height:12px;border-radius:50%;flex:none}
+.tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.tabs button{flex:none;height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--linea);background:#fff;cursor:pointer;font-size:14px}
+.tabs button.on{background:#000;color:#fff;border-color:#000}
+.fila{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--linea)}
+.fila:first-child{border-top:0}
+.fila .ph{width:48px;height:48px;border-radius:8px;background:#EEE center/cover no-repeat;flex:none}
+.fila .t{flex:1;min-width:0}
+.fila .n{font-weight:500;line-height:1.3}
+.fila .s{font-size:13px;color:var(--gris)}
+.fila.off .n{color:var(--gris);text-decoration:line-through}
+.sw{position:relative;width:52px;height:30px;flex:none}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw span{position:absolute;inset:0;border-radius:999px;background:#C9C9C9;transition:background .15s;cursor:pointer}
+.sw span:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw input:checked+span{background:var(--verde)}
+.sw input:checked+span:before{transform:translateX(22px)}
+.sw input:focus-visible+span{outline:2px solid #000;outline-offset:2px}
+.etq{font-size:12px;font-weight:600;width:62px;text-align:right;flex:none}
+.etq.no{color:var(--rojo)}
+.etq.si{color:var(--verde)}
+.toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app"><p class="sub" style="padding:24px">Cargando…</p></div>
+<div id="toast" class="toast" role="status"></div>
+<script src="/vendor/supabase.js"></script>
+<script>
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
+const app = document.getElementById('app');
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = n => Number(n || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+let usuario = null, N = null, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], pestana = null;
+
+function aviso(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('on'), 2200); }
+
+async function fijarSesion(s) {
+  usuario = s?.user || null;
+  if (!usuario) return vistaAcceso();
+  const { data: ids, error } = await sb.rpc('reclamar_invitacion');
+  if (error || !ids || !ids.length) return vistaSinAcceso();
+  const { data: n } = await sb.from('negocios').select('id,nombre,slug,pedidos_pausados').eq('id', ids[0]).single();
+  N = n; await cargar(); vistaPanel();
+}
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  await fijarSesion(session);
+  sb.auth.onAuthStateChange((_e, s) => { if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s); });
+})();
+
+/* ---------- Acceso ---------- */
+function vistaAcceso(modo = 'entrar') {
+  const crear = modo === 'crear';
+  app.innerHTML = `<div class="acceso">
+    <div><h1>Panel del negocio</h1><p class="sub">${crear ? 'Crea tu cuenta con el correo que diste para tu negocio' : 'Entra con tu correo y tu contraseña'}</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
+      <label class="campo">Contraseña<input type="password" id="clave" autocomplete="${crear ? 'new-password' : 'current-password'}" minlength="8" required>${crear ? '<span class="sub" style="font-weight:400">Mínimo 8 caracteres.</span>' : ''}</label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">${crear ? 'Crear cuenta' : 'Entrar'}</button>
+    </form>
+    <button class="btn claro" id="cambiar">${crear ? 'Ya tengo cuenta' : 'Es mi primera vez: crear cuenta'}</button>
+  </div>`;
+  $('cambiar').onclick = () => vistaAcceso(crear ? 'entrar' : 'crear');
+  $('f').onsubmit = async e => {
+    e.preventDefault();
+    const err = $('err'); err.hidden = true;
+    const email = $('email').value.trim(), password = $('clave').value;
+    const b = e.target.querySelector('button'); b.disabled = true;
+    if (crear) {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/panel' } });
+      b.disabled = false;
+      if (error) { err.textContent = /already|registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Pulsa "Ya tengo cuenta".' : 'No se pudo crear la cuenta. Revisa el correo y la contraseña.'; err.hidden = false; return; }
+      if (!data.session) app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Te hemos enviado un correo para confirmar la cuenta. Ábrelo, pulsa el enlace y vuelve aquí para entrar.</p><button class="btn" id="ir">Ir a entrar</button></div>`, $('ir').onclick = () => vistaAcceso();
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      b.disabled = false;
+      if (error) { err.textContent = /confirm/i.test(error.message) ? 'Aún no has confirmado tu correo. Busca el correo de confirmación (mira también en spam).' : 'Correo o contraseña incorrectos.'; err.hidden = false; }
+    }
+  };
+}
+function vistaSinAcceso() {
+  app.innerHTML = `<div class="acceso"><h1>Cuenta sin negocio</h1><p class="sub">Esta cuenta no está vinculada a ningún negocio. Entra con el correo que diste a Escalia o avisa a James.</p><button class="btn claro" id="salir">Salir</button></div>`;
+  $('salir').onclick = () => sb.auth.signOut();
+}
+
+/* ---------- Datos ---------- */
+async function cargar() {
+  const [c, p, g, o] = await Promise.all([
+    sb.from('categorias').select('id,nombre,orden,activa').eq('negocio_id', N.id).order('orden'),
+    sb.from('productos').select('id,categoria_id,nombre,precio,disponible,orden,foto_url').eq('negocio_id', N.id).order('orden'),
+    sb.from('grupos_opciones').select('id,producto_id,nombre').eq('negocio_id', N.id),
+    sb.from('opciones').select('id,grupo_id,nombre,disponible,orden').eq('negocio_id', N.id).order('orden')
+  ]);
+  CATS = (c.data || []).filter(x => x.activa); PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
+}
+const esBebidaCat = c => /bebida/i.test(c?.nombre || '');
+const grupoDe = o => GRUPOS.find(g => g.id === o.grupo_id) || {};
+// Opciones agrupadas por nombre (una salsa aparece en muchos productos: se activa/agota en todos a la vez)
+function opcionesUnicas() {
+  const mapa = new Map();
+  OPCS.forEach(o => {
+    const g = grupoDe(o); if (/bebida/i.test(g.nombre || '')) return;
+    const k = (g.nombre || '').replace(/ \(.*\)$/, '') + '|' + o.nombre;
+    if (!mapa.has(k)) mapa.set(k, { grupo: (g.nombre || '').replace(/ \(.*\)$/, ''), nombre: o.nombre, ids: [], disponible: true });
+    const e = mapa.get(k); e.ids.push(o.id); if (!o.disponible) e.disponible = false;
+  });
+  return [...mapa.values()];
+}
+
+/* ---------- Panel ---------- */
+function vistaPanel() {
+  const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
+  const tabs = [...CATS.filter(c => PRODS.some(p => p.categoria_id === c.id)).map(c => ({ k: 'c' + c.id, t: c.nombre })), ...grupos.map(gn => ({ k: 'g' + gn, t: gn }))];
+  if (!pestana || !tabs.some(t => t.k === pestana)) pestana = tabs[0]?.k;
+  const agotados = PRODS.filter(p => !p.disponible).length + opcionesUnicas().filter(x => !x.disponible).length;
+  app.innerHTML = `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
+  <main>
+    <section class="tarjeta" aria-labelledby="t1">
+      <h2 id="t1">Pedidos online</h2>
+      <p class="estado"><span class="punto" style="background:${N.pedidos_pausados ? 'var(--rojo)' : 'var(--verde)'}"></span>${N.pedidos_pausados ? 'Pausados: los clientes no pueden pedir' : 'Activos: recibiendo pedidos'}</p>
+      <button class="btn ${N.pedidos_pausados ? 'verde' : 'rojo'}" id="pausa">${N.pedidos_pausados ? 'Reanudar pedidos online' : 'Pausar pedidos online'}</button>
+      <p class="sub">${N.pedidos_pausados ? 'La carta se sigue viendo, pero sin poder pagar.' : 'Úsalo si hay mucho lío o te quedas sin algo importante. La carta se sigue viendo.'}</p>
+    </section>
+    <section class="tarjeta" aria-labelledby="t2">
+      <div><h2 id="t2">Agotados</h2><p class="sub">Apaga lo que no tengas ahora. Se oculta o sale como agotado en la carta al momento.${agotados ? ` <strong style="color:var(--rojo)">${agotados} apagado${agotados > 1 ? 's' : ''}.</strong>` : ''}</p></div>
+      <nav class="tabs" aria-label="Secciones">${tabs.map(t => `<button data-t="${esc(t.k)}" class="${t.k === pestana ? 'on' : ''}">${esc(t.t)}</button>`).join('')}</nav>
+      <div id="lista"></div>
+    </section>
+  </main>`;
+  $('salir').onclick = () => sb.auth.signOut();
+  $('pausa').onclick = cambiarPausa;
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { pestana = b.dataset.t; vistaPanel(); });
+  pintarLista();
+}
+
+function interruptor(id, on, etiqueta) {
+  return `<span class="etq ${on ? 'si' : 'no'}">${on ? 'Hay' : 'Agotado'}</span><label class="sw"><input type="checkbox" data-sw="${esc(id)}" ${on ? 'checked' : ''} aria-label="${esc(etiqueta)}"><span></span></label>`;
+}
+function pintarLista() {
+  const el = $('lista');
+  if (pestana?.startsWith('c')) {
+    const ps = PRODS.filter(p => p.categoria_id === pestana.slice(1));
+    el.innerHTML = ps.map(p => `<div class="fila${p.disponible ? '' : ' off'}"><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><div class="t"><div class="n">${esc(p.nombre)}</div><div class="s">${eur(p.precio)}</div></div>${interruptor('p:' + p.id, p.disponible, p.nombre + ' disponible')}</div>`).join('');
+  } else {
+    const gn = pestana.slice(1);
+    const os = opcionesUnicas().filter(x => x.grupo === gn);
+    el.innerHTML = os.map((o, i) => `<div class="fila${o.disponible ? '' : ' off'}"><div class="t"><div class="n">${esc(o.nombre)}</div><div class="s">En todos los productos</div></div>${interruptor('o:' + gn + '|' + o.nombre, o.disponible, o.nombre + ' disponible')}</div>`).join('');
+  }
+  el.querySelectorAll('[data-sw]').forEach(i => i.onchange = () => cambiar(i));
+}
+
+async function cambiar(input) {
+  const on = input.checked, [tipo, ref] = [input.dataset.sw.slice(0, 1), input.dataset.sw.slice(2)];
+  input.disabled = true;
+  let error;
+  if (tipo === 'p') {
+    const p = PRODS.find(x => x.id === ref);
+    ({ error } = await sb.from('productos').update({ disponible: on }).eq('id', p.id));
+    // Si es una bebida, también se agota/activa como bebida de los menús
+    if (!error && esBebidaCat(CATS.find(c => c.id === p.categoria_id))) {
+      const ids = OPCS.filter(o => o.nombre === p.nombre && /bebida/i.test(grupoDe(o).nombre || '')).map(o => o.id);
+      if (ids.length) ({ error } = await sb.from('opciones').update({ disponible: on }).in('id', ids));
+      if (!error) OPCS.filter(o => ids.includes(o.id)).forEach(o => o.disponible = on);
+    }
+    if (!error) p.disponible = on;
+    if (!error) aviso(on ? p.nombre + ': disponible' : p.nombre + ': agotado');
+  } else {
+    const o = opcionesUnicas().find(x => x.grupo + '|' + x.nombre === ref);
+    ({ error } = await sb.from('opciones').update({ disponible: on }).in('id', o.ids));
+    if (!error) { OPCS.filter(x => o.ids.includes(x.id)).forEach(x => x.disponible = on); aviso(on ? o.nombre + ': disponible' : o.nombre + ': agotado'); }
+  }
+  if (error) { input.checked = !on; input.disabled = false; aviso('No se pudo guardar. Revisa la conexión.'); return; }
+  vistaPanel();
+}
+
+async function cambiarPausa() {
+  const b = $('pausa'); b.disabled = true;
+  const nuevo = !N.pedidos_pausados;
+  const { error } = await sb.from('negocios').update({ pedidos_pausados: nuevo }).eq('id', N.id);
+  if (error) { b.disabled = false; return aviso('No se pudo guardar. Revisa la conexión.'); }
+  N.pedidos_pausados = nuevo; aviso(nuevo ? 'Pedidos online pausados' : 'Pedidos online activos'); vistaPanel();
+}
+</script>
+</body>
+</html>
