@@ -23,10 +23,11 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 .dcard{flex:none;width:150px;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .ph{position:relative;display:block;background:#EEE center/cover no-repeat;border-radius:12px}
 .ph.fit{background-size:contain;background-color:#fff}
+.ph.hero{width:100%;aspect-ratio:1/1;max-height:62vh;border-radius:0;background-size:contain;background-color:#fff}
 .sel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 16px}
 .sel button{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:10px;border:1px solid var(--b);border-radius:12px;background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .sel button[disabled]{border:2px solid #000;cursor:default}
-.sel .ph{height:120px;border-radius:8px}
+.sel .ph{width:100%;aspect-ratio:1/1;border-radius:8px}
 .sel .tag{font-size:12px;font-weight:600}
 .aviso{margin:6px 16px 14px;padding:12px 14px;border-radius:12px;background:#F3F3F3;font-size:15px;line-height:1.4}
 .btn2{display:block;width:100%;max-width:688px;margin:0 auto 10px;height:46px;border-radius:8px;border:1px solid #000;background:#fff;color:#000;font-size:15px;font-weight:600;cursor:pointer}
@@ -237,7 +238,7 @@ function abrirFicha(pid, editIdx, reempIdx) {
   const el = $('ficha');
   const al = (p.alergenos || []).length ? p.alergenos.join(', ') : 'consultar en el local';
   el.innerHTML = `<div class="inner">
-    <div style="position:relative"><span class="ph${fit(p)}" style="height:300px;border-radius:0;${img(p.foto_url, p._v)}"></span><button class="close" id="fx" aria-label="Cerrar">✕</button></div>
+    <div style="position:relative"><span class="ph hero" style="${img(p.foto_url, p._v)}"></span><button class="close" id="fx" aria-label="Cerrar">✕</button></div>
     <div style="padding:18px 16px"><h1 style="font-size:24px">${esc(p.nombre)}</h1>
       <p style="font-size:18px;font-weight:500;margin:6px 0 0">${eur(p.precio)}</p>
       ${p.descripcion ? `<p class="muted" style="font-size:15px">${esc(p.descripcion)}</p>` : ''}
