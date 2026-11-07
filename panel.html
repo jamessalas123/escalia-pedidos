@@ -81,7 +81,6 @@ async function fijarSesion(s) {
   N = n; await cargar(); vistaPanel();
 }
 let recuperando = /type=recovery/.test(location.hash);
-const MAX_INACTIVO = 7 * 24 * 3600 * 1000; // cierra la sesión tras 7 días sin usar el panel
 function marcarActividad() { try { localStorage.setItem('panel_actividad', String(Date.now())); } catch (e) {} }
 (async () => {
   sb.auth.onAuthStateChange((ev, s) => {
@@ -90,8 +89,6 @@ function marcarActividad() { try { localStorage.setItem('panel_actividad', Strin
     if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s);
   });
   const { data: { session } } = await sb.auth.getSession();
-  let ultima = 0; try { ultima = Number(localStorage.getItem('panel_actividad') || 0); } catch (e) {}
-  if (session && ultima && Date.now() - ultima > MAX_INACTIVO) { await sb.auth.signOut(); return vistaAcceso(); }
   if (recuperando) return session ? vistaNuevaClave() : null;
   await fijarSesion(session);
 })();
