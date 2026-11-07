@@ -482,16 +482,12 @@ const ESTADOS_CLIENTE = { nuevo: 'Recibido. En cola para preparar.', preparando:
 function verPedidoEnviado(info, estadoIni) {
   const { id, codigo } = info;
   const el = $('pedido');
-  const t = String(info.tel || '').replace(/[^\d]/g, '');
-  const tel = t.length === 9 ? '34' + t : t;
-  const msg = `Mi pedido en ${N.nombre}: *${codigo}*` + (info.resumen ? `\n${info.resumen}` : '') + (info.total ? `\nTotal: ${eur(info.total)}` : '') + `\nVer cómo va: ${enlaceEstado(id)}`;
   el.innerHTML = `<div class="inner" style="padding:28px 20px;text-align:center">
     <p style="font-size:15px;margin:24px 0 6px">Tu número de pedido</p>
     <p style="font-size:64px;font-weight:700;margin:0;line-height:1">${esc(codigo)}</p>
     <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE[estadoIni || 'nuevo']}</p>
     <p class="muted" style="margin:0 0 20px">${(info.origen || ORIGEN) === 'local' ? 'Cuando esté listo diremos tu número en voz alta.' : 'Te avisaremos por WhatsApp cuando esté listo.'}</p>
-    ${tel ? `<a class="btn" id="guardarWa" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" style="max-width:420px;margin:0 auto 6px;background:#1DA851;text-decoration:none">Guardar mi pedido en WhatsApp</a>
-    <p class="muted" style="font-size:12px;margin:0 0 22px">Se abre tu WhatsApp con el número de pedido. Pulsa enviar y lo tendrás guardado.</p>` : '<p class="muted" style="font-size:13px;margin:0 0 22px">Si vuelves a abrir esta carta en este móvil, verás tu pedido arriba.</p>'}
+    <p style="margin:0 auto 24px;max-width:420px;padding:12px 14px;border-radius:12px;background:#E7F5EC;color:#0B6B37;font-size:14px;line-height:1.45">Tu número queda registrado en esta página. Si cierras y vuelves a abrir la carta en este móvil, lo verás arriba en verde.</p>
     ${N.modo_prueba ? '<p class="muted" style="font-size:13px;margin:0 0 16px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
     <button class="btn" id="fin" style="max-width:420px;margin:0 auto">Volver a la carta</button>
   </div>`;
