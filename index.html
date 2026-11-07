@@ -109,8 +109,8 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 <div id="bar" class="bar" hidden></div>
 <script src="/vendor/supabase.js"></script>
 <script>
-const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
-const slug = location.pathname.split('/').filter(Boolean)[0] || 'kebab-jr';
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const slug = location.pathname.split('/').filter(Boolean)[0] || '';
 { const m = /^(panel|admin)\W+$/i.exec(slug); if (m) location.replace('/' + m[1].toLowerCase()); }
 const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -144,7 +144,7 @@ const lock = () => {
 
 async function load() {
   const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados').eq('slug', slug).eq('activo', true).maybeSingle();
-  if (error || !n) { $('app').innerHTML = '<p class="state">Esta carta no está disponible.</p>'; return; }
+  if (error || !n) { $('app').innerHTML = slug ? '<p class="state">Esta carta no está disponible.</p>' : '<p class="state">Para ver la carta, escanea el código QR del local o abre el enlace que te ha dado el establecimiento.</p>'; return; }
   N = n; document.title = n.nombre + ' · Carta';
   const [c, p, g, o] = await Promise.all([
     sb.from('categorias').select('*').eq('negocio_id', n.id).eq('activa', true).order('orden'),

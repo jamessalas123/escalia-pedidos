@@ -109,7 +109,7 @@ td{padding:14px 16px;border-top:1px solid var(--linea);vertical-align:middle}
 <script src="/vendor/supabase.js"></script>
 <script src="/vendor/qrcode.js"></script>
 <script>
-const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { storageKey: 'escalia-admin' } });
 const app = document.getElementById('app');
 let usuario = null, esAdmin = false;
 

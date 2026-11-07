@@ -62,7 +62,7 @@ main{max-width:720px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-dire
 <div id="toast" class="toast" role="status"></div>
 <script src="/vendor/supabase.js"></script>
 <script>
-const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5');
+const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { storageKey: 'escalia-panel' } });
 const app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
