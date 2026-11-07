@@ -37,6 +37,7 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 .tabs{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:22px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-top:18px}
 .tabs a{flex:none;padding:13px 0 10px;border-bottom:3px solid transparent;color:#000;text-decoration:none;font-size:15px}
 .tabs a.on{border-color:#000;font-weight:600}
+@media (hover:hover) and (pointer:fine){.tabs{flex-wrap:wrap;row-gap:0}.dest{scrollbar-width:thin;scrollbar-color:#BDBDBD transparent;padding-bottom:10px}}
 section.cat{padding:22px 16px 0;scroll-margin-top:52px}
 .list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
 .item{display:flex;min-height:112px;border:1px solid var(--b);border-radius:12px;overflow:hidden;background:#fff;padding:0;text-align:left;cursor:pointer;width:100%}
@@ -500,6 +501,15 @@ function abrirLegal(k) {
 }
 
 load();
+
+// Ratón: la rueda desplaza en horizontal las filas que se deslizan (Destacados)
+document.addEventListener('wheel', e => {
+  const fila = e.target.closest && e.target.closest('.dest');
+  if (!fila || Math.abs(e.deltaX) > Math.abs(e.deltaY) || fila.scrollWidth <= fila.clientWidth) return;
+  const fin = fila.scrollLeft + fila.clientWidth >= fila.scrollWidth - 1;
+  if ((e.deltaY > 0 && fin) || (e.deltaY < 0 && fila.scrollLeft <= 0)) return;
+  e.preventDefault(); fila.scrollLeft += e.deltaY;
+}, { passive: false });
 </script>
 </body>
 </html>
