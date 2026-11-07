@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<script>if(/\.vercel\.app$/.test(location.hostname))location.replace('https://pide.escaliadigital.com'+location.pathname+location.search+location.hash)</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Panel del negocio</title>
@@ -117,7 +119,7 @@ function vistaAcceso(modo = 'entrar') {
     const email = $('email').value.trim(), password = $('clave').value;
     const b = e.target.querySelector('button'); b.disabled = true;
     if (crear) {
-      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/panel' } });
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: 'https://pide.escaliadigital.com/panel' } });
       b.disabled = false;
       if (error) { err.textContent = /already|registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Pulsa "Ya tengo cuenta".' : 'No se pudo crear la cuenta. Revisa el correo y la contraseña.'; err.hidden = false; return; }
       if (!data.session) app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Te hemos enviado un correo para confirmar la cuenta. Ábrelo, pulsa el enlace y vuelve aquí para entrar.</p><button class="btn" id="ir">Ir a entrar</button></div>`, $('ir').onclick = () => vistaAcceso();
@@ -142,7 +144,7 @@ function vistaOlvido() {
   $('f').onsubmit = async e => {
     e.preventDefault();
     const b = e.target.querySelector('button'); b.disabled = true;
-    const { error } = await sb.auth.resetPasswordForEmail($('email').value.trim(), { redirectTo: location.origin + '/panel' });
+    const { error } = await sb.auth.resetPasswordForEmail($('email').value.trim(), { redirectTo: 'https://pide.escaliadigital.com/panel' });
     b.disabled = false;
     if (error && /rate|limit|seconds/i.test(error.message)) { $('err').textContent = 'Espera un minuto antes de pedir otro enlace.'; $('err').hidden = false; return; }
     // Mismo mensaje exista o no la cuenta: así nadie puede averiguar qué correos están registrados

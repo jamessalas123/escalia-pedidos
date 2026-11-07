@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<script>if(/\.vercel\.app$/.test(location.hostname))location.replace('https://pide.escaliadigital.com'+location.pathname+location.search+location.hash)</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Escalia Digital · Panel</title>
@@ -113,7 +115,8 @@ let usuario = null, esAdmin = false;
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const euros = n => Number(n || 0).toLocaleString('es-ES', {style:'currency', currency:'EUR'});
-const enlace = slug => `${location.origin}/${slug}`;
+const DOMINIO = 'https://pide.escaliadigital.com';
+const enlace = slug => `${DOMINIO}/${slug}`;
 const bg = u => u ? `style="background-image:url('${esc(u)}')"` : '';
 const hoy = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Madrid'}).format(new Date());
 const slugDe = t => t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/&/g,' y ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
@@ -221,7 +224,7 @@ function vistaOlvido(){
   document.getElementById('volver').onclick = () => vistaAcceso();
   document.getElementById('f').onsubmit = async e => {
     e.preventDefault(); const b = e.target.querySelector('button'); b.disabled = true;
-    const { error } = await sb.auth.resetPasswordForEmail(document.getElementById('email').value.trim(), { redirectTo: location.origin + '/admin' });
+    const { error } = await sb.auth.resetPasswordForEmail(document.getElementById('email').value.trim(), { redirectTo: 'https://pide.escaliadigital.com/admin' });
     b.disabled = false;
     if (error && /rate|limit|seconds/i.test(error.message)) { const er = document.getElementById('err'); er.textContent = 'Espera un minuto antes de pedir otro enlace.'; er.hidden = false; return; }
     app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Si ese correo tiene cuenta, te llegará un enlace en unos minutos (mira también en spam).</p><button class="btn claro" id="ir">Volver a entrar</button></div>`;
