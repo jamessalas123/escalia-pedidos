@@ -72,16 +72,28 @@ function aviso(t) { const el = $('toast'); el.textContent = t; el.classList.add(
 async function fijarSesion(s) {
   usuario = s?.user || null;
   if (!usuario) return vistaAcceso();
+  marcarActividad();
   const { data: ids, error } = await sb.rpc('reclamar_invitacion');
   if (error || !ids || !ids.length) return vistaSinAcceso();
   const { data: n } = await sb.from('negocios').select('id,nombre,slug,pedidos_pausados').eq('id', ids[0]).single();
   N = n; await cargar(); vistaPanel();
 }
+let recuperando = /type=recovery/.test(location.hash);
+const MAX_INACTIVO = 7 * 24 * 3600 * 1000; // cierra la sesión tras 7 días sin usar el panel
+function marcarActividad() { try { localStorage.setItem('panel_actividad', String(Date.now())); } catch (e) {} }
 (async () => {
+  sb.auth.onAuthStateChange((ev, s) => {
+    if (ev === 'PASSWORD_RECOVERY') { recuperando = true; usuario = s?.user || null; return vistaNuevaClave(); }
+    if (recuperando) return;
+    if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s);
+  });
   const { data: { session } } = await sb.auth.getSession();
+  let ultima = 0; try { ultima = Number(localStorage.getItem('panel_actividad') || 0); } catch (e) {}
+  if (session && ultima && Date.now() - ultima > MAX_INACTIVO) { await sb.auth.signOut(); return vistaAcceso(); }
+  if (recuperando) return session ? vistaNuevaClave() : null;
   await fijarSesion(session);
-  sb.auth.onAuthStateChange((_e, s) => { if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s); });
 })();
+['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, marcarActividad, { passive: true }));
 
 /* ---------- Acceso ---------- */
 function vistaAcceso(modo = 'entrar') {
@@ -95,8 +107,10 @@ function vistaAcceso(modo = 'entrar') {
       <button class="btn" type="submit">${crear ? 'Crear cuenta' : 'Entrar'}</button>
     </form>
     <button class="btn claro" id="cambiar">${crear ? 'Ya tengo cuenta' : 'Es mi primera vez: crear cuenta'}</button>
+    ${crear ? '' : '<button class="lnk" id="olvido" style="align-self:center">¿Olvidaste tu contraseña?</button>'}
   </div>`;
   $('cambiar').onclick = () => vistaAcceso(crear ? 'entrar' : 'crear');
+  if ($('olvido')) $('olvido').onclick = vistaOlvido;
   $('f').onsubmit = async e => {
     e.preventDefault();
     const err = $('err'); err.hidden = true;
@@ -112,6 +126,50 @@ function vistaAcceso(modo = 'entrar') {
       b.disabled = false;
       if (error) { err.textContent = /confirm/i.test(error.message) ? 'Aún no has confirmado tu correo. Busca el correo de confirmación (mira también en spam).' : 'Correo o contraseña incorrectos.'; err.hidden = false; }
     }
+  };
+}
+function vistaOlvido() {
+  app.innerHTML = `<div class="acceso">
+    <div><h1>Recuperar contraseña</h1><p class="sub">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva. El enlace caduca en 1 hora.</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">Enviar enlace</button>
+    </form>
+    <button class="btn claro" id="volver">Volver</button>
+  </div>`;
+  $('volver').onclick = () => vistaAcceso();
+  $('f').onsubmit = async e => {
+    e.preventDefault();
+    const b = e.target.querySelector('button'); b.disabled = true;
+    const { error } = await sb.auth.resetPasswordForEmail($('email').value.trim(), { redirectTo: location.origin + '/panel' });
+    b.disabled = false;
+    if (error && /rate|limit|seconds/i.test(error.message)) { $('err').textContent = 'Espera un minuto antes de pedir otro enlace.'; $('err').hidden = false; return; }
+    // Mismo mensaje exista o no la cuenta: así nadie puede averiguar qué correos están registrados
+    app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Si ese correo tiene cuenta, te llegará un enlace en unos minutos (mira también en spam). Ábrelo desde este mismo móvil u ordenador.</p><button class="btn claro" id="ir">Volver a entrar</button></div>`;
+    $('ir').onclick = () => vistaAcceso();
+  };
+}
+function vistaNuevaClave() {
+  app.innerHTML = `<div class="acceso">
+    <div><h1>Nueva contraseña</h1><p class="sub">Elige una contraseña nueva de al menos 8 caracteres.</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Nueva contraseña<input type="password" id="c1" autocomplete="new-password" minlength="8" required></label>
+      <label class="campo">Repítela<input type="password" id="c2" autocomplete="new-password" minlength="8" required></label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">Guardar contraseña</button>
+    </form>
+  </div>`;
+  $('f').onsubmit = async e => {
+    e.preventDefault();
+    const err = $('err'); err.hidden = true;
+    if ($('c1').value !== $('c2').value) { err.textContent = 'Las dos contraseñas no coinciden.'; err.hidden = false; return; }
+    const b = e.target.querySelector('button'); b.disabled = true;
+    const { error } = await sb.auth.updateUser({ password: $('c1').value });
+    b.disabled = false;
+    if (error) { err.textContent = /weak|pwned|leaked|compromised/i.test(error.message) ? 'Esa contraseña es demasiado fácil o ha aparecido en filtraciones. Elige otra.' : /same/i.test(error.message) ? 'Tiene que ser distinta de la anterior.' : 'No se pudo guardar. Vuelve a pedir el enlace.'; err.hidden = false; return; }
+    recuperando = false; aviso('Contraseña cambiada');
+    const { data: { session } } = await sb.auth.getSession(); usuario = null; fijarSesion(session);
   };
 }
 function vistaSinAcceso() {
