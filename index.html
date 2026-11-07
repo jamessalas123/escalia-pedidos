@@ -428,7 +428,7 @@ function abrirPedido() {
     if (!est.abierto) { e.textContent = 'Ahora no aceptamos pedidos online' + (est.cuando ? '. Volvemos ' + est.cuando + '.' : '.') + ' ' + (N.horario?.cierre_pedidos_min ? 'Dejamos de aceptarlos ' + N.horario.cierre_pedidos_min + ' minutos antes del cierre.' : ''); return; }
     if (!$('acepto').checked) { e.textContent = 'Marca la casilla para aceptar las condiciones de compra y la política de privacidad.'; $('acepto').focus(); return; }
     try { if ($('recordar').checked) localStorage.setItem('datos-cliente', JSON.stringify({ n, t })); else localStorage.removeItem('datos-cliente'); } catch (x) {}
-    if (!N.modo_prueba) { e.style.color = 'var(--g)'; e.textContent = 'Versión de prueba: el pago se conecta en el siguiente paso.'; return; }
+    if (!N.modo_prueba) { e.style.color = ''; e.textContent = 'Los pedidos online de este local todavía no están activos. Muy pronto podrás pedir y pagar aquí.'; return; }
     enviarPedido(n, t, $('obs').value.trim());
   };
   el.classList.add('open'); lock();
