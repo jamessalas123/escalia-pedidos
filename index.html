@@ -112,6 +112,8 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 <script>
 const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const slug = location.pathname.split('/').filter(Boolean)[0] || '';
+// El QR pegado en el local lleva ?local: así se distingue quien pide desde el local de quien pide desde casa
+const ORIGEN = /(^|[?&])local(=|&|$)/.test(location.search) ? 'local' : 'online';
 { const m = /^(panel|admin)\W+$/i.exec(slug); if (m) location.replace('/' + m[1].toLowerCase()); }
 const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -144,7 +146,7 @@ const lock = () => {
 };
 
 async function load() {
-  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados').eq('slug', slug).eq('activo', true).maybeSingle();
+  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados,modo_prueba').eq('slug', slug).eq('activo', true).maybeSingle();
   if (error || !n) { $('app').innerHTML = slug ? '<p class="state">Esta carta no está disponible.</p>' : '<p class="state">Para ver la carta, escanea el código QR del local o abre el enlace que te ha dado el establecimiento.</p>'; return; }
   N = n; document.title = n.nombre + ' · Carta';
   const [c, p, g, o] = await Promise.all([
@@ -172,6 +174,8 @@ function render() {
       <p class="muted">${esc(cats.map(c => c.nombre).join(' · '))}</p>
       ${N.direccion ? `<p class="muted">${esc(N.direccion)}</p>` : ''}
       ${(() => { const e = estadoPedidos(); return e.abierto ? '' : `<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45"><strong>${e.pausa ? 'Pedidos online pausados un momento.' : 'Ahora no aceptamos pedidos online.'}</strong> ${e.cuando ? 'Volvemos ' + e.cuando + '.' : ''} Puedes ver la carta y preparar tu pedido.</p>`; })()}
+      ${ORIGEN === 'local' ? '<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#E7F5EC;color:#0B6B37;font-size:14px;line-height:1.45"><strong>Estás pidiendo desde el local.</strong> Cuando esté listo te llamaremos por tu número.</p>' : ''}
+      ${N.modo_prueba ? '<p style="margin:12px 0 0;padding:10px 14px;border-radius:12px;background:#F3F3F3;font-size:13px">Carta en modo prueba: los pedidos no se cobran.</p>' : ''}
       <div class="notes">
         <p class="note">${ICO_BOLSA}Solo para recoger en el local</p>
         <p class="note">${ICO_AVISO}Pide, paga y te avisamos por WhatsApp cuando esté listo</p>
@@ -424,12 +428,46 @@ function abrirPedido() {
     if (!est.abierto) { e.textContent = 'Ahora no aceptamos pedidos online' + (est.cuando ? '. Volvemos ' + est.cuando + '.' : '.') + ' ' + (N.horario?.cierre_pedidos_min ? 'Dejamos de aceptarlos ' + N.horario.cierre_pedidos_min + ' minutos antes del cierre.' : ''); return; }
     if (!$('acepto').checked) { e.textContent = 'Marca la casilla para aceptar las condiciones de compra y la política de privacidad.'; $('acepto').focus(); return; }
     try { if ($('recordar').checked) localStorage.setItem('datos-cliente', JSON.stringify({ n, t })); else localStorage.removeItem('datos-cliente'); } catch (x) {}
-    e.style.color = 'var(--g)';
-    e.textContent = 'Versión de prueba: el pago con Stripe se conecta en el siguiente paso.';
+    if (!N.modo_prueba) { e.style.color = 'var(--g)'; e.textContent = 'Versión de prueba: el pago se conecta en el siguiente paso.'; return; }
+    enviarPedido(n, t, $('obs').value.trim());
   };
   el.classList.add('open'); lock();
 }
 
+
+async function enviarPedido(nombre, tel, obs) {
+  const b = $('pay'), e = $('perr'); b.disabled = true; b.textContent = 'Enviando…';
+  const lineas = cart.map(l => ({ pid: l.pid, qty: l.qty, ops: (l.ops || []).map(o => ({ grupo: o.grupo, nombre: o.nombre })), nota: l.nota || '' }));
+  const { data, error } = await sb.rpc('crear_pedido', { p_slug: slug, p_origen: ORIGEN, p_lineas: lineas, p_nombre: nombre, p_telefono: tel, p_notas: obs || null });
+  if (error || !data || !data[0]) {
+    b.disabled = false; b.textContent = 'Pagar ' + eur(total());
+    const m = error?.message || '';
+    e.style.color = '';
+    e.textContent = /pausad/i.test(m) ? 'El local ha pausado los pedidos online. Inténtalo en un rato.' : /no disponible/i.test(m) ? 'Algún producto de tu pedido ya no está disponible. Revísalo.' : 'No se pudo enviar el pedido. Inténtalo de nuevo.';
+    return;
+  }
+  const ped = data[0];
+  try { localStorage.setItem('ultimo-pedido-' + slug, JSON.stringify({ id: ped.id, codigo: ped.codigo })); } catch (x) {}
+  cart = []; save(); bar();
+  verPedidoEnviado(ped.id, ped.codigo, nombre);
+}
+const ESTADOS_CLIENTE = { nuevo: 'Recibido. En cola para preparar.', preparando: 'Preparando tu pedido…', listo: '¡Listo! Ya puedes recogerlo.', entregado: 'Entregado. ¡Que aproveche!', cancelado: 'Pedido cancelado. Contacta con el local.' };
+function verPedidoEnviado(id, codigo, nombre) {
+  const el = $('pedido');
+  el.innerHTML = `<div class="inner" style="padding:28px 20px;text-align:center">
+    <p style="font-size:15px;margin:24px 0 6px">Tu número de pedido</p>
+    <p style="font-size:64px;font-weight:700;margin:0;line-height:1">${esc(codigo)}</p>
+    <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE.nuevo}</p>
+    <p class="muted" style="margin:0 0 28px">${ORIGEN === 'local' ? 'Cuando esté listo diremos tu número en voz alta.' : 'Te avisaremos por WhatsApp cuando esté listo.'} Guarda este número.</p>
+    ${N.modo_prueba ? '<p class="muted" style="font-size:13px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
+    <button class="btn" id="fin" style="max-width:420px;margin:0 auto">Volver a la carta</button>
+  </div>`;
+  $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); render(); bar(); };
+  clearInterval(el._t);
+  const mirar = async () => { const { data } = await sb.rpc('estado_pedido', { p_id: id }); const est = data && data[0] && data[0].estado; if (est && $('estadoPed')) $('estadoPed').textContent = ESTADOS_CLIENTE[est] || est; if (!$('estadoPed') || est === 'entregado' || est === 'cancelado') clearInterval(el._t); };
+  el._t = setInterval(mirar, 10000);
+  el.classList.add('open'); el.scrollTop = 0; lock();
+}
 
 const LEGALES = [['aviso', 'Aviso legal'], ['privacidad', 'Privacidad'], ['condiciones', 'Condiciones de compra'], ['terminos', 'Términos de uso'], ['cookies', 'Cookies']];
 const ACTUALIZADO = '2 de noviembre de 2026';

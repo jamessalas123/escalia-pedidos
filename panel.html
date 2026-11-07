@@ -53,6 +53,24 @@ main{max-width:720px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-dire
 .etq{font-size:12px;font-weight:600;width:62px;text-align:right;flex:none}
 .etq.no{color:var(--rojo)}
 .etq.si{color:var(--verde)}
+.vistas{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--linea);position:sticky;top:57px;background:#fff;z-index:4}
+.vistas button{flex:1;height:42px;border-radius:10px;border:none;background:var(--suave);font-weight:600;cursor:pointer;font-size:15px}
+.vistas button.on{background:#000;color:#fff}
+.globo{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--rojo);color:#fff;font-size:13px;margin-left:4px}
+.ped{border:1px solid var(--linea);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ped.nuevo{border:2px solid var(--rojo)}
+.ped .cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ped .cod{font-size:30px;font-weight:800;line-height:1}
+.etiq{font-size:12px;font-weight:700;padding:4px 8px;border-radius:6px;letter-spacing:.3px}
+.etiq.local{background:#E7F5EC;color:#0B6B37}
+.etiq.online{background:#E8F0FE;color:#1A4FA0}
+.etiq.est{background:var(--suave);color:#000}
+.etiq.prueba{background:#FFF4E0;color:#8A5300}
+.ped ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.ped li{font-size:15px;line-height:1.35}
+.ped li small{display:block;color:var(--gris);font-size:13px}
+.ped .acc{display:flex;gap:8px;flex-wrap:wrap}
+.ped .acc .btn{flex:1 1 140px;height:48px}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1}
 </style>
@@ -67,7 +85,7 @@ const app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = n => Number(n || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-let usuario = null, N = null, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], pestana = null;
+let usuario = null, N = null, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], pestana = null, vista = 'pedidos', PEDIDOS = [], verHechos = false, canal = null, sonidoOk = false;
 
 function aviso(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('on'), 2200); }
 
@@ -76,10 +94,10 @@ async function fijarSesion(s) {
   if (!usuario) return vistaAcceso();
   const { data: ids, error } = await sb.rpc('reclamar_invitacion');
   if (error || !ids || !ids.length) return vistaSinAcceso();
-  const { data: n } = await sb.from('negocios').select('id,nombre,slug,pedidos_pausados').eq('id', ids[0]).single();
+  const { data: n } = await sb.from('negocios').select('id,nombre,slug,pedidos_pausados,modo_prueba').eq('id', ids[0]).single();
   N = n;
   if (CONTRATO && !(await contratoAceptado())) return vistaContrato();
-  await cargar(); vistaPanel();
+  await cargar(); await cargarPedidos(); escucharPedidos(); vistaPanel();
 }
 
 /* ---------- Aceptación del contrato (primera entrada y cada versión nueva) ---------- */
@@ -108,7 +126,7 @@ function vistaContrato() {
     const base = { negocio_id: N.id, email: usuario.email, version: CONTRATO.version, navegador: navigator.userAgent.slice(0, 300) };
     const { error } = await sb.from('aceptaciones').insert([{ ...base, documento: 'contrato_servicio' }, { ...base, documento: 'anexo_encargado' }]);
     if (error) { $('aceptar').disabled = false; $('err').textContent = 'No se pudo guardar. Revisa la conexión.'; $('err').hidden = false; return; }
-    await cargar(); vistaPanel();
+    await cargar(); await cargarPedidos(); escucharPedidos(); vistaPanel();
   };
 }
 (async () => {
@@ -206,12 +224,22 @@ function opcionesUnicas() {
 }
 
 /* ---------- Panel ---------- */
-function vistaPanel() {
+function vistaPanel() { if (vista === 'pedidos') vistaPedidos(); else vistaCarta(); }
+function cabecera() {
+  const n = PEDIDOS.filter(p => p.estado === 'nuevo').length;
+  return `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
+  <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button></nav>`;
+}
+function conectarCabecera() {
+  $('salir').onclick = () => sb.auth.signOut();
+  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; vistaPanel(); window.scrollTo(0, 0); });
+}
+function vistaCarta() {
   const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
   const tabs = [...CATS.filter(c => PRODS.some(p => p.categoria_id === c.id)).map(c => ({ k: 'c' + c.id, t: c.nombre })), ...grupos.map(gn => ({ k: 'g' + gn, t: gn }))];
   if (!pestana || !tabs.some(t => t.k === pestana)) pestana = tabs[0]?.k;
   const agotados = PRODS.filter(p => !p.disponible).length + opcionesUnicas().filter(x => !x.disponible).length;
-  app.innerHTML = `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
+  app.innerHTML = `${cabecera()}
   <main>
     <section class="tarjeta" aria-labelledby="t1">
       <h2 id="t1">Pedidos online</h2>
@@ -225,7 +253,7 @@ function vistaPanel() {
       <div id="lista"></div>
     </section>
   </main>`;
-  $('salir').onclick = () => sb.auth.signOut();
+  conectarCabecera();
   $('pausa').onclick = cambiarPausa;
   app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { pestana = b.dataset.t; vistaPanel(); });
   pintarLista();
@@ -246,6 +274,98 @@ function pintarLista() {
     el.innerHTML = os.map((o, i) => `<div class="fila${o.disponible ? '' : ' off'}"><div class="t"><div class="n">${esc(o.nombre)}</div><div class="s">En todos los productos</div></div>${interruptor('o:' + gn + '|' + o.nombre, o.disponible, o.nombre + ' disponible')}</div>`).join('');
   }
   el.querySelectorAll('[data-sw]').forEach(i => i.onchange = () => cambiar(i));
+}
+
+/* ---------- Pedidos en tiempo real ---------- */
+const ESTADOS = { nuevo: 'Nuevo', preparando: 'Preparando', listo: 'Listo', entregado: 'Entregado', cancelado: 'Cancelado' };
+const SIGUIENTE = { nuevo: ['preparando', 'Empezar a preparar'], preparando: ['listo', 'Marcar como listo'], listo: ['entregado', 'Entregado al cliente'] };
+const ANTERIOR = { preparando: 'nuevo', listo: 'preparando', entregado: 'listo', cancelado: 'nuevo' };
+const hoyMadrid = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+async function cargarPedidos() {
+  const { data } = await sb.from('pedidos').select('id,codigo,origen,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
+    .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
+  PEDIDOS = data || [];
+}
+function pitido() {
+  if (!sonidoOk) return;
+  try {
+    const ctx = pitido.ctx || (pitido.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    [0, 0.25, 0.5].forEach(t => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15); });
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+function escucharPedidos() {
+  if (canal) sb.removeChannel(canal);
+  canal = sb.channel('pedidos-' + N.id)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'negocio_id=eq.' + N.id }, async ev => {
+      await cargarPedidos();
+      if (ev.eventType === 'INSERT') { pitido(); aviso('Nuevo pedido ' + (ev.new.codigo || '')); }
+      if (vista === 'pedidos' || ev.eventType === 'INSERT') vistaPanel();
+    }).subscribe();
+  // Por si se pierde la conexión: refresco cada minuto
+  clearInterval(escucharPedidos.t);
+  escucharPedidos.t = setInterval(async () => { await cargarPedidos(); if (vista === 'pedidos') vistaPanel(); }, 60000);
+}
+function hora(iso) { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }); }
+function tarjetaPedido(p) {
+  const local = p.origen === 'local';
+  const lineas = (p.lineas_pedido || []).map(l => {
+    const ops = (l.opciones || []).map(o => o.nombre).join(', ');
+    return `<li><strong>${l.cantidad} × ${esc(l.nombre_producto)}</strong>${ops ? `<small>${esc(ops)}</small>` : ''}${l.observaciones ? `<small>Nota: ${esc(l.observaciones)}</small>` : ''}</li>`;
+  }).join('');
+  const sig = SIGUIENTE[p.estado];
+  const tel = (p.cliente_telefono || '').replace(/[^\d]/g, '');
+  const wa = `https://wa.me/${tel.length === 9 ? '34' + tel : tel}?text=${encodeURIComponent(`Hola ${p.cliente_nombre || ''}, tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`)}`;
+  return `<article class="ped ${p.estado === 'nuevo' ? 'nuevo' : ''}" aria-label="Pedido ${esc(p.codigo)}">
+    <div class="cab"><span class="cod">${esc(p.codigo)}</span>
+      <span class="etiq ${local ? 'local' : 'online'}">${local ? 'EN EL LOCAL' : 'A DISTANCIA'}</span>
+      <span class="etiq est">${ESTADOS[p.estado] || p.estado}</span>
+      ${p.pagado ? '' : `<span class="etiq prueba">${N.modo_prueba ? 'PRUEBA · SIN COBRAR' : 'SIN PAGAR'}</span>`}
+      <span class="sub" style="margin-left:auto">${hora(p.creado_en)}</span></div>
+    <p style="font-weight:600">${esc(p.cliente_nombre || '')}</p>
+    <ul>${lineas}</ul>
+    ${p.notas ? `<p class="sub">Observaciones: ${esc(p.notas)}</p>` : ''}
+    <p style="font-weight:700">Total ${eur(p.total)}</p>
+    <div class="acc">
+      ${sig ? `<button class="btn ${sig[0] === 'listo' ? 'verde' : ''}" data-est="${p.id}|${sig[0]}">${sig[1]}</button>` : ''}
+      ${p.estado === 'listo' ? (local ? `<p class="sub" style="flex:1 1 100%">Di en voz alta: <strong>número ${esc(p.codigo)}</strong></p>` : '') + `<a class="btn claro" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none">Avisar por WhatsApp</a>` : ''}
+    </div>
+    <div class="acc">
+      ${ANTERIOR[p.estado] ? `<button class="lnk" data-est="${p.id}|${ANTERIOR[p.estado]}">Deshacer (volver a ${ESTADOS[ANTERIOR[p.estado]].toLowerCase()})</button>` : ''}
+      ${['nuevo', 'preparando'].includes(p.estado) ? `<button class="lnk" style="color:var(--rojo)" data-est="${p.id}|cancelado">Cancelar pedido</button>` : ''}
+    </div>
+  </article>`;
+}
+function vistaPedidos() {
+  const activos = PEDIDOS.filter(p => ['nuevo', 'preparando', 'listo'].includes(p.estado));
+  const hechos = PEDIDOS.filter(p => ['entregado', 'cancelado'].includes(p.estado)).reverse();
+  const caja = PEDIDOS.filter(p => p.estado === 'entregado').reduce((a, p) => a + Number(p.total), 0);
+  app.innerHTML = `${cabecera()}
+  <main>
+    ${sonidoOk ? '' : '<button class="btn claro" id="sonido">🔔 Activar sonido de pedidos nuevos</button>'}
+    ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
+    <h2>En marcha (${activos.length})</h2>
+    ${activos.length ? activos.map(tarjetaPedido).join('') : '<p class="sub">No hay pedidos pendientes. Cuando entre uno, aparecerá aquí al momento.</p>'}
+    <button class="btn claro" id="hechos">${verHechos ? 'Ocultar' : 'Ver'} entregados y cancelados de hoy (${hechos.length})</button>
+    ${verHechos ? hechos.map(tarjetaPedido).join('') : ''}
+    <p class="sub" style="text-align:center">Entregado hoy: <strong>${eur(caja)}</strong> en ${PEDIDOS.filter(p => p.estado === 'entregado').length} pedidos</p>
+  </main>`;
+  conectarCabecera();
+  if ($('sonido')) $('sonido').onclick = () => { sonidoOk = true; pitido(); vistaPanel(); };
+  $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
+  let confirmar = null;
+  app.querySelectorAll('[data-est]').forEach(b => b.onclick = async () => {
+    const [id, est] = b.dataset.est.split('|');
+    if ((est === 'cancelado' || est === 'listo') && confirmar !== b) {
+      confirmar = b; const txt = b.textContent; b.textContent = est === 'cancelado' ? '¿Seguro? Toca otra vez para cancelar' : '¿Seguro que está listo? Toca otra vez';
+      setTimeout(() => { if (confirmar === b) { confirmar = null; b.textContent = txt; } }, 4000); return;
+    }
+    b.disabled = true;
+    const { error } = await sb.from('pedidos').update({ estado: est }).eq('id', id);
+    if (error) { b.disabled = false; return aviso('No se pudo guardar. Revisa la conexión.'); }
+    const p = PEDIDOS.find(x => x.id === id); if (p) p.estado = est;
+    aviso((p ? p.codigo + ': ' : '') + ESTADOS[est]); vistaPanel();
+  });
 }
 
 async function cambiar(input) {

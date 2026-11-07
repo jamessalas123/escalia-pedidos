@@ -645,7 +645,8 @@ async function vistaPublicado(id){
   if (error) return pintar(`<a class="volver" href="#">← Negocios</a><p class="error">No se encontró el negocio.</p>`);
   const url = enlace(n.slug);
   const texto = `¡Hola! Gracias por escribir a ${n.nombre}. Haz tu pedido y págalo aquí: ${url} Te avisamos por WhatsApp cuando esté listo para recoger.`;
-  const qr = qrDe(url);
+  const urlLocal = url + '?local';
+  const qr = qrDe(urlLocal);
   pintar(`
     <a class="volver" href="#">← Negocios</a>
     ${n.activo
@@ -655,6 +656,7 @@ async function vistaPublicado(id){
     <div class="dos">
       <section>
         <div class="tarjeta"><h2>1. Enlace de su carta</h2>
+          <p class="sub" style="font-size:14px">Para Instagram, WhatsApp y Google. Los pedidos salen como <b>A DISTANCIA</b> (P1, P2…).</p>
           <div class="caja">${esc(url)}</div>
           <div class="acciones"><button class="btn peq" data-copiar="${esc(url)}">Copiar</button><a class="btn claro peq" href="${esc(url)}" target="_blank" rel="noopener">Abrir</a></div></div>
         <div class="tarjeta"><h2>2. Texto para su WhatsApp Business</h2>
@@ -667,6 +669,7 @@ async function vistaPublicado(id){
       </section>
       <section class="tarjeta" style="align-items:center">
         <h2 style="align-self:flex-start">4. QR para el mostrador</h2>
+        <p class="sub" style="font-size:14px;align-self:flex-start">Solo para pegar en el local. Los pedidos salen como <b>EN EL LOCAL</b> (1, 2…).</p>
         <div class="qr" role="img" aria-label="Código QR de la carta">${qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true })}</div>
         <b>Escanea para pedir</b>
         <div class="acciones" style="justify-content:center"><button class="btn peq" id="descargar">Descargar QR</button><button class="btn claro peq" id="cartel">Cartel para imprimir</button></div>
@@ -674,7 +677,7 @@ async function vistaPublicado(id){
     </div>`);
   document.querySelectorAll('[data-copiar]').forEach(b => b.onclick = () => copiar(b.dataset.copiar));
   document.getElementById('descargar').onclick = () => descargarQR(qr, n.slug);
-  document.getElementById('cartel').onclick = () => cartel(n, url, qr);
+  document.getElementById('cartel').onclick = () => cartel(n, urlLocal, qr);
   const p = document.getElementById('publicarYa');
   if (p) p.onclick = async () => { p.disabled = true; const { error } = await sb.from('negocios').update({ activo: true }).eq('id', n.id); if (error) { p.disabled = false; return aviso('No se pudo publicar'); } vistaPublicado(id); };
 }
