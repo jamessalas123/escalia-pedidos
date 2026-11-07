@@ -37,6 +37,7 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 .tabs{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:22px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-top:18px}
 .tabs a{flex:none;padding:13px 0 10px;border-bottom:3px solid transparent;color:#000;text-decoration:none;font-size:15px}
 .tabs a.on{border-color:#000;font-weight:600}
+.mipedido{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:14px 16px;border:0;background:#E7F5EC;color:#0B6B37;font:inherit;font-size:15px;cursor:pointer;text-align:left}
 @media (hover:hover) and (pointer:fine){.tabs{flex-wrap:wrap;row-gap:0}.dest{scrollbar-width:thin;scrollbar-color:#BDBDBD transparent;padding-bottom:10px}}
 section.cat{padding:22px 16px 0;scroll-margin-top:52px}
 .list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
@@ -162,6 +163,7 @@ async function load() {
     && (l.ops || l.opciones || []).every(op => OPCS.some(x => x.nombre === op.nombre)));
   save();
   render(); bar();
+  revisarPedidoGuardado();
 }
 
 function render() {
@@ -447,22 +449,53 @@ async function enviarPedido(nombre, tel, obs) {
     return;
   }
   const ped = data[0];
-  try { localStorage.setItem('ultimo-pedido-' + slug, JSON.stringify({ id: ped.id, codigo: ped.codigo })); } catch (x) {}
+  const resumen = cart.map(l => l.qty + '× ' + (PRODS.find(p => p.id === l.pid) || {}).nombre).join(', ');
+  const info = { id: ped.id, codigo: ped.codigo, fecha: hoyMadrid(), origen: ORIGEN, resumen, total: Number(ped.total), tel };
+  try { localStorage.setItem('ultimo-pedido-' + slug, JSON.stringify(info)); } catch (x) {}
   cart = []; save(); bar();
-  verPedidoEnviado(ped.id, ped.codigo, nombre);
+  verPedidoEnviado(info);
 }
+const hoyMadrid = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+const enlaceEstado = id => `${location.origin}/${slug}?pedido=${id}`;
+function pedidoGuardado() { try { return JSON.parse(localStorage.getItem('ultimo-pedido-' + slug) || 'null'); } catch (x) { return null; } }
+// Al volver a abrir la carta: si hay un pedido de hoy sin recoger, se muestra arriba. ?pedido=ID abre su estado directamente.
+async function revisarPedidoGuardado() {
+  const q = new URLSearchParams(location.search).get('pedido');
+  let info = pedidoGuardado();
+  if (q && /^[0-9a-f-]{36}$/i.test(q) && (!info || info.id !== q)) info = { id: q };
+  if (!info || !info.id) return;
+  const { data } = await sb.rpc('estado_pedido', { p_id: info.id });
+  const r = data && data[0];
+  if (!r) return;
+  info.codigo = r.codigo;
+  const terminado = r.estado === 'entregado' || r.estado === 'cancelado';
+  if (q) return verPedidoEnviado(info, r.estado);
+  if (terminado || (info.fecha && info.fecha !== hoyMadrid())) { try { localStorage.removeItem('ultimo-pedido-' + slug); } catch (x) {} return; }
+  const b = document.createElement('button');
+  b.id = 'mipedido'; b.className = 'mipedido';
+  b.innerHTML = `<span>Tu pedido <strong>${esc(r.codigo)}</strong> · ${esc(ESTADOS_CORTO[r.estado] || r.estado)}</span><span style="text-decoration:underline">Ver</span>`;
+  b.onclick = () => verPedidoEnviado(info, r.estado);
+  document.querySelector('.wrap')?.prepend(b);
+}
+const ESTADOS_CORTO = { nuevo: 'Recibido', preparando: 'Preparando', listo: '¡Listo para recoger!' };
 const ESTADOS_CLIENTE = { nuevo: 'Recibido. En cola para preparar.', preparando: 'Preparando tu pedido…', listo: '¡Listo! Ya puedes recogerlo.', entregado: 'Entregado. ¡Que aproveche!', cancelado: 'Pedido cancelado. Contacta con el local.' };
-function verPedidoEnviado(id, codigo, nombre) {
+function verPedidoEnviado(info, estadoIni) {
+  const { id, codigo } = info;
   const el = $('pedido');
+  const t = String(info.tel || '').replace(/[^\d]/g, '');
+  const tel = t.length === 9 ? '34' + t : t;
+  const msg = `Mi pedido en ${N.nombre}: *${codigo}*` + (info.resumen ? `\n${info.resumen}` : '') + (info.total ? `\nTotal: ${eur(info.total)}` : '') + `\nVer cómo va: ${enlaceEstado(id)}`;
   el.innerHTML = `<div class="inner" style="padding:28px 20px;text-align:center">
     <p style="font-size:15px;margin:24px 0 6px">Tu número de pedido</p>
     <p style="font-size:64px;font-weight:700;margin:0;line-height:1">${esc(codigo)}</p>
-    <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE.nuevo}</p>
-    <p class="muted" style="margin:0 0 28px">${ORIGEN === 'local' ? 'Cuando esté listo diremos tu número en voz alta.' : 'Te avisaremos por WhatsApp cuando esté listo.'} Guarda este número.</p>
-    ${N.modo_prueba ? '<p class="muted" style="font-size:13px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
+    <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE[estadoIni || 'nuevo']}</p>
+    <p class="muted" style="margin:0 0 20px">${(info.origen || ORIGEN) === 'local' ? 'Cuando esté listo diremos tu número en voz alta.' : 'Te avisaremos por WhatsApp cuando esté listo.'}</p>
+    ${tel ? `<a class="btn" id="guardarWa" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener" style="max-width:420px;margin:0 auto 6px;background:#1DA851;text-decoration:none">Guardar mi pedido en WhatsApp</a>
+    <p class="muted" style="font-size:12px;margin:0 0 22px">Se abre tu WhatsApp con el número de pedido. Pulsa enviar y lo tendrás guardado.</p>` : '<p class="muted" style="font-size:13px;margin:0 0 22px">Si vuelves a abrir esta carta en este móvil, verás tu pedido arriba.</p>'}
+    ${N.modo_prueba ? '<p class="muted" style="font-size:13px;margin:0 0 16px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
     <button class="btn" id="fin" style="max-width:420px;margin:0 auto">Volver a la carta</button>
   </div>`;
-  $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); render(); bar(); };
+  $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); if (/[?&]pedido=/.test(location.search)) history.replaceState(null, '', location.pathname + (ORIGEN === 'local' ? '?local' : '')); render(); bar(); revisarPedidoGuardado(); };
   clearInterval(el._t);
   const mirar = async () => { const { data } = await sb.rpc('estado_pedido', { p_id: id }); const est = data && data[0] && data[0].estado; if (est && $('estadoPed')) $('estadoPed').textContent = ESTADOS_CLIENTE[est] || est; if (!$('estadoPed') || est === 'entregado' || est === 'cancelado') clearInterval(el._t); };
   el._t = setInterval(mirar, 10000);
