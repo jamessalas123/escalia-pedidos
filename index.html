@@ -113,8 +113,8 @@ html.bloq #app,html.bloq #bar{visibility:hidden}
 <script>
 const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const slug = location.pathname.split('/').filter(Boolean)[0] || '';
-// El QR pegado en el local lleva ?local: así se distingue quien pide desde el local de quien pide desde casa
-const ORIGEN = /(^|[?&])local(=|&|$)/.test(location.search) ? 'local' : 'online';
+// Todos los pedidos de la web van a la misma fila (P1, P2…), se pida desde casa o desde el local
+const ORIGEN = 'online';
 { const m = /^(panel|admin)\W+$/i.exec(slug); if (m) location.replace('/' + m[1].toLowerCase()); }
 const eur = n => Number(n).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -176,7 +176,6 @@ function render() {
       <p class="muted">${esc(cats.map(c => c.nombre).join(' · '))}</p>
       ${N.direccion ? `<p class="muted">${esc(N.direccion)}</p>` : ''}
       ${(() => { const e = estadoPedidos(); return e.abierto ? '' : `<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#FFF4E0;font-size:14px;line-height:1.45"><strong>${e.pausa ? 'Pedidos online pausados un momento.' : 'Ahora no aceptamos pedidos online.'}</strong> ${e.cuando ? 'Volvemos ' + e.cuando + '.' : ''} Puedes ver la carta y preparar tu pedido.</p>`; })()}
-      ${ORIGEN === 'local' ? '<p style="margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#E7F5EC;color:#0B6B37;font-size:14px;line-height:1.45"><strong>Estás pidiendo desde el local.</strong> Cuando esté listo te llamaremos por tu número.</p>' : ''}
       ${N.modo_prueba ? '<p style="margin:12px 0 0;padding:10px 14px;border-radius:12px;background:#F3F3F3;font-size:13px">Carta en modo prueba: los pedidos no se cobran.</p>' : ''}
       <div class="notes">
         <p class="note">${ICO_BOLSA}Solo para recoger en el local</p>
@@ -486,12 +485,12 @@ function verPedidoEnviado(info, estadoIni) {
     <p style="font-size:15px;margin:24px 0 6px">Tu número de pedido</p>
     <p style="font-size:64px;font-weight:700;margin:0;line-height:1">${esc(codigo)}</p>
     <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE[estadoIni || 'nuevo']}</p>
-    <p class="muted" style="margin:0 0 20px">${(info.origen || ORIGEN) === 'local' ? 'Cuando esté listo diremos tu número en voz alta.' : 'Te avisaremos por WhatsApp cuando esté listo.'}</p>
+    <p class="muted" style="margin:0 0 20px">Te avisaremos por WhatsApp cuando esté listo. Si estás en el local, también diremos tu número.</p>
     <p style="margin:0 auto 24px;max-width:420px;padding:12px 14px;border-radius:12px;background:#E7F5EC;color:#0B6B37;font-size:14px;line-height:1.45">Tu número queda registrado en esta página. Si cierras y vuelves a abrir la carta en este móvil, lo verás arriba en verde.</p>
     ${N.modo_prueba ? '<p class="muted" style="font-size:13px;margin:0 0 16px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
     <button class="btn" id="fin" style="max-width:420px;margin:0 auto">Volver a la carta</button>
   </div>`;
-  $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); if (/[?&]pedido=/.test(location.search)) history.replaceState(null, '', location.pathname + (ORIGEN === 'local' ? '?local' : '')); render(); bar(); revisarPedidoGuardado(); };
+  $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); if (/[?&]pedido=/.test(location.search)) history.replaceState(null, '', location.pathname); render(); bar(); revisarPedidoGuardado(); };
   clearInterval(el._t);
   const mirar = async () => { const { data } = await sb.rpc('estado_pedido', { p_id: id }); const est = data && data[0] && data[0].estado; if (est && $('estadoPed')) $('estadoPed').textContent = ESTADOS_CLIENTE[est] || est; if (!$('estadoPed') || est === 'entregado' || est === 'cancelado') clearInterval(el._t); };
   el._t = setInterval(mirar, 10000);
