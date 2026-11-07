@@ -102,6 +102,55 @@ main.ancho{max-width:1280px}
 .tk-go.preparando{background:var(--verde)}
 .tk-go.listo{background:#000}
 .tk-mas{display:flex;justify-content:space-between}
+.etiq.most{background:#E8EEF9;color:#1A3F7A}
+.etiq.pagado{background:#E7F5EC;color:#0B6B37}
+.acciones{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.acciones>.btn{width:auto;padding:0 22px;height:48px;font-size:17px}
+.acciones .buscar{flex:1 1 300px;max-width:460px;align-self:auto}
+/* Pedido en mostrador */
+.mostr{max-width:1280px;margin:0 auto;padding:14px 16px 140px;display:grid;gap:16px}
+@media (min-width:900px){.mostr{grid-template-columns:minmax(0,1fr) 360px;align-items:start;padding-bottom:40px}}
+.prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+.prod{display:flex;flex-direction:column;text-align:left;border:1px solid var(--linea);border-radius:12px;background:#fff;padding:0;overflow:hidden;cursor:pointer}
+.prod .ph{aspect-ratio:4/3;background:#F3F3F3 center/cover no-repeat}
+.prod .t{padding:8px 10px;display:flex;flex-direction:column;gap:2px;font-size:14px;line-height:1.25}
+.prod .t span{color:var(--gris);font-size:13px}
+.prod:disabled{opacity:.4;cursor:not-allowed}
+.prod:active{transform:scale(.98)}
+.ticket{border:1px solid var(--linea);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;background:#fff}
+@media (min-width:900px){.ticket{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto}}
+.tl{display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--linea);padding-top:10px}
+.tl:first-child{border-top:0;padding-top:0}
+.tl .t{flex:1;min-width:0;font-size:15px}
+.tl small{display:block;color:var(--gris);font-size:13px}
+.cant{display:flex;align-items:center;gap:6px;flex:none}
+.cant button{width:34px;height:34px;border-radius:50%;border:1px solid var(--borde);background:#fff;font-size:18px;cursor:pointer}
+.metodo{display:flex;gap:8px}
+.metodo button{flex:1;height:50px;border-radius:10px;border:1px solid var(--borde);background:#fff;font-weight:600;cursor:pointer}
+.metodo button.on{background:#000;color:#fff;border-color:#000}
+.velo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:700px){.velo{align-items:center}}
+.hoja{background:#fff;width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px;display:flex;flex-direction:column;gap:14px}
+@media (min-width:700px){.hoja{border-radius:16px}}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp h3{margin:0;font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--borde);background:#fff;cursor:pointer;font-size:15px}
+.chips button.on{background:#000;color:#fff;border-color:#000}
+.chips button:disabled{opacity:.4;text-decoration:line-through}
+.hecho{max-width:460px;margin:8vh auto 0;padding:0 20px;text-align:center;display:flex;flex-direction:column;gap:16px}
+.hecho .num{font-size:96px;font-weight:800;line-height:1}
+#print{display:none}
+@media print{
+  @page{size:80mm auto;margin:3mm}
+  body>*:not(#print){display:none !important}
+  #print{display:block;font-family:Inter,system-ui,sans-serif;color:#000;width:72mm;font-size:13px}
+  #print .pn{font-size:46px;font-weight:800;text-align:center;line-height:1.1}
+  #print .c{text-align:center}
+  #print ul{list-style:none;padding:0;margin:8px 0}
+  #print li{margin-bottom:5px}
+  #print hr{border:0;border-top:1px dashed #000}
+}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;z-index:30;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1}
 </style>
@@ -109,6 +158,7 @@ main.ancho{max-width:1280px}
 <body>
 <div id="app"><p class="sub" style="padding:24px">Cargando…</p></div>
 <div id="toast" class="toast" role="status"></div>
+<div id="print" aria-hidden="true"></div>
 <script src="/vendor/supabase.js"></script>
 <script>
 const sb = supabase.createClient('https://akfnzkdavpktvqugqklo.supabase.co', 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', { auth: { storageKey: 'escalia-panel' } });
@@ -235,8 +285,8 @@ async function cargar() {
   const [c, p, g, o] = await Promise.all([
     sb.from('categorias').select('id,nombre,orden,activa').eq('negocio_id', N.id).order('orden'),
     sb.from('productos').select('id,categoria_id,nombre,precio,disponible,orden,foto_url').eq('negocio_id', N.id).order('orden'),
-    sb.from('grupos_opciones').select('id,producto_id,nombre').eq('negocio_id', N.id),
-    sb.from('opciones').select('id,grupo_id,nombre,disponible,orden').eq('negocio_id', N.id).order('orden')
+    sb.from('grupos_opciones').select('id,producto_id,nombre,minimo,maximo,orden').order('orden').eq('negocio_id', N.id),
+    sb.from('opciones').select('id,grupo_id,nombre,disponible,orden,precio_extra').eq('negocio_id', N.id).order('orden')
   ]);
   CATS = (c.data || []).filter(x => x.activa); PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
 }
@@ -255,7 +305,7 @@ function opcionesUnicas() {
 }
 
 /* ---------- Panel ---------- */
-function vistaPanel() { if (vista === 'pedidos') vistaPedidos(); else vistaCarta(); }
+function vistaPanel() { if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') vistaPedidos(); else vistaCarta(); }
 function cabecera() {
   const n = PEDIDOS.filter(p => p.estado === 'nuevo').length;
   return `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
@@ -312,7 +362,7 @@ const ESTADOS = { nuevo: 'Nuevo', preparando: 'Preparando', listo: 'Listo', entr
 const ANTERIOR = { preparando: 'nuevo', listo: 'preparando', entregado: 'listo', cancelado: 'nuevo' };
 const hoyMadrid = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 async function cargarPedidos() {
-  const { data } = await sb.from('pedidos').select('id,codigo,origen,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
+  const { data } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
   PEDIDOS = data || [];
 }
@@ -329,7 +379,8 @@ function escucharPedidos() {
   canal = sb.channel('pedidos-' + N.id)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'negocio_id=eq.' + N.id }, async ev => {
       await cargarPedidos();
-      if (ev.eventType === 'INSERT') { pitido(); aviso('Nuevo pedido ' + (ev.new.codigo || '')); }
+      if (ev.eventType === 'INSERT' && ev.new.origen !== 'mostrador') { pitido(); aviso('Nuevo pedido ' + (ev.new.codigo || '')); }
+      if (vista === 'mostrador') return;
       if (vista === 'pedidos' || ev.eventType === 'INSERT') vistaPanel();
     }).subscribe();
   // Por si se pierde la conexión: refresco cada minuto
@@ -356,14 +407,20 @@ function tarjetaPedido(p) {
       <span class="tk-quien"><b>${esc(p.cliente_nombre || 'Mostrador')}</b><span class="${tarde ? 'tarde' : ''}">${hace(p.creado_en)} · ${hora(p.creado_en)}</span></span></div>
     <ul class="tk-lineas">${lineas}</ul>
     ${p.notas ? `<p class="nota">Observaciones: ${esc(p.notas)}</p>` : ''}
-    <p class="tk-total">${eur(p.total)}${p.pagado ? '' : ` <span class="etiq prueba">${N.modo_prueba ? 'PRUEBA' : 'SIN PAGAR'}</span>`}</p>
+    <p class="tk-total">${eur(p.total)} ${etiquetaPago(p)}</p>
     ${b ? `<button class="btn tk-go ${p.estado}" data-est="${p.id}|${b[0]}">${b[1]}</button>` : ''}
     ${p.estado === 'listo' && tel ? `<a class="btn claro" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none;height:44px">Avisar por WhatsApp</a>` : ''}
     <div class="tk-mas">
       ${ANTERIOR[p.estado] ? `<button class="lnk" data-est="${p.id}|${ANTERIOR[p.estado]}">↶ Deshacer</button>` : ''}
+      <button class="lnk" data-imp="${p.id}">🖨 Imprimir</button>
       ${['nuevo', 'preparando'].includes(p.estado) ? `<button class="lnk" style="color:var(--rojo)" data-est="${p.id}|cancelado">Cancelar</button>` : ''}
     </div>
   </article>`;
+}
+function etiquetaPago(p) {
+  if (p.origen === 'mostrador') return `<span class="etiq most">MOSTRADOR · ${p.metodo_pago === 'tarjeta_caja' ? 'TARJETA' : 'EFECTIVO'}</span>`;
+  if (p.pagado) return '<span class="etiq pagado">PAGADO</span>';
+  return `<span class="etiq prueba">${N.modo_prueba ? 'PRUEBA' : 'SIN PAGAR'}</span>`;
 }
 const COLUMNAS = [['nuevo', 'Nuevos'], ['preparando', 'Preparando'], ['listo', 'Listos']];
 function vistaPedidos() {
@@ -374,7 +431,8 @@ function vistaPedidos() {
   <main class="ancho">
     ${sonidoOk ? '' : '<button class="btn claro" id="sonido">🔔 Activar sonido de pedidos nuevos</button>'}
     ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
-    <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form>
+    <div class="acciones"><button class="btn" id="nuevoMost">+ Pedido en mostrador</button>
+    <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form></div>
     <nav class="colnav" aria-label="Estados">${COLUMNAS.map(([e, t]) => `<button data-col="${e}" class="${colMovil === e ? 'on' : ''}">${t} <span>${por(e).length}</span></button>`).join('')}</nav>
     <div class="tablero">${COLUMNAS.map(([e, t]) => `<section class="columna ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}">${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
     <button class="btn claro" id="hechos" style="max-width:520px;align-self:center">${verHechos ? 'Ocultar' : 'Ver'} entregados y cancelados de hoy (${hechos.length})</button>
@@ -384,6 +442,8 @@ function vistaPedidos() {
   conectarCabecera();
   if ($('sonido')) $('sonido').onclick = () => { sonidoOk = true; pitido(); vistaPanel(); };
   $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
+  $('nuevoMost').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null }; vista = 'mostrador'; vistaPanel(); window.scrollTo(0, 0); };
+  app.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => imprimir(PEDIDOS.find(x => x.id === b.dataset.imp)));
   app.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { colMovil = b.dataset.col; vistaPanel(); });
   $('fbus').onsubmit = e => {
     e.preventDefault();
@@ -413,6 +473,124 @@ function vistaPedidos() {
 }
 // Actualiza los "hace X min" cada 30 s
 setInterval(() => { if (N && vista === 'pedidos' && !document.querySelector('#bus:focus')) vistaPanel(); }, 30000);
+
+/* ---------- Pedido en mostrador (clientes sin móvil, cobran en caja) ---------- */
+let MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null };
+const gruposDe = pid => GRUPOS.filter(g => g.producto_id === pid).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+const opcsDe = gid => OPCS.filter(o => o.grupo_id === gid).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+const nombreGrupo = n => (n || '').replace(/ \(.*\)$/, '');
+function pista(g) {
+  if (g.maximo === 1) return g.minimo >= 1 ? 'Obligatorio · elige 1' : 'Opcional · elige 1';
+  return g.minimo >= 1 ? `Elige entre ${g.minimo} y ${g.maximo}` : `Opcional · hasta ${g.maximo}`;
+}
+const totalMost = () => MOST.lineas.reduce((a, l) => a + l.precio * l.qty, 0);
+function vistaMostrador() {
+  if (MOST.hecho) return vistaMostradorHecho();
+  const cats = CATS.filter(c => PRODS.some(p => p.categoria_id === c.id));
+  if (!MOST.cat || !cats.some(c => c.id === MOST.cat)) MOST.cat = cats[0]?.id;
+  const ps = PRODS.filter(p => p.categoria_id === MOST.cat);
+  const tot = totalMost();
+  app.innerHTML = `<div class="barra"><button class="lnk" id="volver" style="text-decoration:none;color:#000;font-weight:600">← Volver</button><b>Pedido en mostrador</b><span style="width:60px"></span></div>
+  <div class="mostr">
+    <section aria-label="Carta">
+      <nav class="tabs" aria-label="Secciones">${cats.map(c => `<button data-cat="${c.id}" class="${c.id === MOST.cat ? 'on' : ''}">${esc(c.nombre)}</button>`).join('')}</nav>
+      <div class="prods">${ps.map(p => `<button class="prod" data-prod="${p.id}" ${p.disponible ? '' : 'disabled'}><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><span class="t"><b>${esc(p.nombre)}</b><span>${p.disponible ? eur(p.precio) : 'Agotado'}</span></span></button>`).join('')}</div>
+    </section>
+    <aside class="ticket" aria-label="Pedido">
+      <h2>Pedido</h2>
+      <div>${MOST.lineas.map((l, i) => `<div class="tl"><div class="t"><b>${esc(l.nombre)}</b>${l.ops.length ? `<small>${esc(l.ops.map(o => o.nombre).join(', '))}</small>` : ''}<small>${eur(l.precio * l.qty)}</small></div>
+        <div class="cant"><button data-menos="${i}" aria-label="Quitar uno">−</button><b>${l.qty}</b><button data-mas="${i}" aria-label="Añadir uno">+</button></div></div>`).join('') || '<p class="sub">Toca los productos para añadirlos.</p>'}</div>
+      <label class="campo">Nombre del cliente (opcional)<input id="mnom" maxlength="40" autocomplete="off" value="${esc(MOST.nombre)}" placeholder="Ej.: Juan"></label>
+      <div class="campo">Cómo paga<div class="metodo"><button data-met="efectivo" class="${MOST.metodo === 'efectivo' ? 'on' : ''}">Efectivo</button><button data-met="tarjeta_caja" class="${MOST.metodo === 'tarjeta_caja' ? 'on' : ''}">Tarjeta</button></div></div>
+      <button class="btn verde" id="crearMost" ${MOST.lineas.length ? '' : 'disabled'}>Crear pedido${tot ? ' · ' + eur(tot) : ''}</button>
+      <p class="sub">Cóbralo en la caja como siempre. Aquí solo se apunta para la cola y el número.</p>
+    </aside>
+  </div>`;
+  $('volver').onclick = () => { vista = 'pedidos'; vistaPanel(); };
+  $('mnom').oninput = e => MOST.nombre = e.target.value;
+  app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { MOST.cat = b.dataset.cat; vistaPanel(); });
+  app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => elegirProducto(PRODS.find(p => p.id === b.dataset.prod)));
+  app.querySelectorAll('[data-met]').forEach(b => b.onclick = () => { MOST.metodo = b.dataset.met; vistaPanel(); });
+  app.querySelectorAll('[data-mas]').forEach(b => b.onclick = () => { MOST.lineas[+b.dataset.mas].qty++; vistaPanel(); });
+  app.querySelectorAll('[data-menos]').forEach(b => b.onclick = () => { const l = MOST.lineas[+b.dataset.menos]; if (--l.qty < 1) MOST.lineas.splice(+b.dataset.menos, 1); vistaPanel(); });
+  $('crearMost').onclick = crearMostrador;
+}
+function anadirLinea(p, ops) {
+  const precio = Number(p.precio) + ops.reduce((a, o) => a + Number(o.extra || 0), 0);
+  const clave = p.id + '|' + ops.map(o => o.grupo + ':' + o.nombre).join(',');
+  const igual = MOST.lineas.find(l => l.clave === clave);
+  if (igual) igual.qty++; else MOST.lineas.push({ clave, pid: p.id, nombre: p.nombre, precio, qty: 1, ops });
+  aviso(p.nombre + ' añadido'); vistaPanel();
+}
+function elegirProducto(p) {
+  const gs = gruposDe(p.id).filter(g => opcsDe(g.id).length);
+  if (!gs.length) return anadirLinea(p, []);
+  const sel = {}; gs.forEach(g => sel[g.id] = []);
+  const velo = document.createElement('div'); velo.className = 'velo';
+  const pintar = () => {
+    const extra = gs.reduce((a, g) => a + sel[g.id].reduce((b, oid) => b + Number(OPCS.find(o => o.id === oid).precio_extra || 0), 0), 0);
+    const falta = gs.find(g => sel[g.id].length < g.minimo);
+    velo.innerHTML = `<div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(p.nombre)}">
+      <h2>${esc(p.nombre)}</h2>
+      ${gs.map(g => `<div class="grp"><h3>${esc(nombreGrupo(g.nombre))} <span class="sub" style="font-weight:400">${pista(g)}</span></h3><div class="chips">${opcsDe(g.id).map(o => `<button data-g="${g.id}" data-o="${o.id}" class="${sel[g.id].includes(o.id) ? 'on' : ''}" ${o.disponible ? '' : 'disabled'}>${esc(o.nombre)}${Number(o.precio_extra) ? ` (${Number(o.precio_extra) > 0 ? '+' : ''}${eur(o.precio_extra)})` : ''}</button>`).join('')}</div></div>`).join('')}
+      <button class="btn" id="hOk" ${falta ? 'disabled' : ''}>${falta ? 'Falta: ' + esc(nombreGrupo(falta.nombre)) : 'Añadir · ' + eur(Number(p.precio) + extra)}</button>
+      <button class="btn claro" id="hNo">Cancelar</button></div>`;
+    velo.querySelectorAll('[data-o]').forEach(b => b.onclick = () => {
+      const g = gs.find(x => x.id === b.dataset.g), lst = sel[g.id], oid = b.dataset.o;
+      if (lst.includes(oid)) lst.splice(lst.indexOf(oid), 1);
+      else if (g.maximo === 1) sel[g.id] = [oid];
+      else if (lst.length < g.maximo) lst.push(oid);
+      else return aviso('Máximo ' + g.maximo);
+      pintar();
+    });
+    velo.querySelector('#hNo').onclick = cerrar;
+    velo.querySelector('#hOk').onclick = () => {
+      const ops = gs.flatMap(g => sel[g.id].map(oid => { const o = OPCS.find(x => x.id === oid); return { grupo: g.nombre, nombre: o.nombre, extra: o.precio_extra }; }));
+      cerrar(); anadirLinea(p, ops);
+    };
+  };
+  const cerrar = () => { velo.remove(); document.removeEventListener('keydown', esc_); };
+  const esc_ = e => { if (e.key === 'Escape') cerrar(); };
+  velo.onclick = e => { if (e.target === velo) cerrar(); };
+  document.addEventListener('keydown', esc_);
+  pintar(); document.body.appendChild(velo);
+}
+async function crearMostrador() {
+  if (!MOST.metodo) return aviso('Elige cómo paga: efectivo o tarjeta');
+  const b = $('crearMost'); b.disabled = true; b.textContent = 'Creando…';
+  const { data, error } = await sb.rpc('crear_pedido_mostrador', {
+    p_negocio: N.id, p_nombre: MOST.nombre.trim(), p_metodo: MOST.metodo, p_notas: null,
+    p_lineas: MOST.lineas.map(l => ({ pid: l.pid, qty: l.qty, ops: l.ops.map(o => ({ grupo: o.grupo, nombre: o.nombre })) }))
+  });
+  if (error || !data?.[0]) { b.disabled = false; b.textContent = 'Crear pedido'; return aviso(/disponible/.test(error?.message || '') ? error.message : 'No se pudo crear. Revisa la conexión.'); }
+  await cargarPedidos();
+  MOST.hecho = PEDIDOS.find(x => x.id === data[0].id) || { ...data[0], cliente_nombre: MOST.nombre, origen: 'mostrador', metodo_pago: MOST.metodo, creado_en: new Date().toISOString(), lineas_pedido: [] };
+  vistaPanel();
+}
+function vistaMostradorHecho() {
+  const p = MOST.hecho;
+  app.innerHTML = `<div class="hecho">
+    <p class="sub">Pedido creado. Dile al cliente su número:</p>
+    <div class="num">${esc(p.codigo)}</div>
+    <p><b>${esc(p.cliente_nombre || 'Mostrador')}</b> · ${eur(p.total)} · ${p.metodo_pago === 'tarjeta_caja' ? 'Tarjeta' : 'Efectivo'}</p>
+    <button class="btn claro" id="imp">🖨 Imprimir ticket con el número</button>
+    <button class="btn" id="otro">+ Otro pedido en mostrador</button>
+    <button class="btn claro" id="ir">Ir a los pedidos</button>
+  </div>`;
+  $('imp').onclick = () => imprimir(p);
+  $('otro').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: MOST.cat, hecho: null }; vistaPanel(); };
+  $('ir').onclick = () => { vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
+}
+// Ticket de 80 mm con el número grande (para la bolsa o el cliente)
+function imprimir(p) {
+  if (!p) return;
+  const lineas = (p.lineas_pedido || []).map(l => `<li><b>${l.cantidad}×</b> ${esc(l.nombre_producto)}${(l.opciones || []).length ? `<br><small>${esc(l.opciones.map(o => o.nombre).join(', '))}</small>` : ''}${l.observaciones ? `<br><small>Nota: ${esc(l.observaciones)}</small>` : ''}</li>`).join('');
+  $('print').innerHTML = `<p class="c"><b>${esc(N.nombre)}</b></p><div class="pn">${esc(p.codigo)}</div>
+    <p class="c">${esc(p.cliente_nombre || 'Mostrador')} · ${hora(p.creado_en)}</p><hr><ul>${lineas}</ul>
+    ${p.notas ? `<p>Obs.: ${esc(p.notas)}</p>` : ''}<hr><p><b>Total ${eur(p.total)}</b> · ${p.origen === 'mostrador' ? (p.metodo_pago === 'tarjeta_caja' ? 'Tarjeta en caja' : 'Efectivo') : (p.pagado ? 'Pagado online' : 'Sin pagar')}</p>
+    <p class="c" style="margin-top:6px">Este papel no es un ticket de compra</p>`;
+  window.print();
+}
 
 async function cambiar(input) {
   const on = input.checked, [tipo, ref] = [input.dataset.sw.slice(0, 1), input.dataset.sw.slice(2)];
