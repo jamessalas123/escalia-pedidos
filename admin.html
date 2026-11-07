@@ -164,85 +164,51 @@ function ruta(){
   if (v === 'bajas') return id === 'nueva' ? vistaNuevaBaja() : vistaBajas();
   return vistaNegocios();
 }
-let recuperando = /type=recovery/.test(location.hash);
 (async () => {
   sb.auth.onAuthStateChange((ev, s) => {
-    if (ev === 'PASSWORD_RECOVERY') { recuperando = true; return vistaNuevaClave(); }
-    if (recuperando) return;
     if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s);
   });
   const { data: { session } } = await sb.auth.getSession();
-  if (recuperando) { if (session) vistaNuevaClave(); return; }
   await fijarSesion(session);
-  window.addEventListener('hashchange', () => { if (!recuperando) ruta(); });
+  window.addEventListener('hashchange', ruta);
 })();
 
 /* ---------- Acceso ---------- */
-function vistaAcceso(modo = 'entrar'){
-  const crear = modo === 'crear';
+function vistaAcceso(emailPrevio = ''){
   app.innerHTML = `<div class="acceso">
-    <div><p style="font-size:22px;font-weight:700">Escalia Digital</p><p class="sub">${crear ? 'Crea tu cuenta de administrador' : 'Panel de administración'}</p></div>
+    <div><p style="font-size:22px;font-weight:700">Escalia Digital</p><p class="sub">Panel de administración. Te enviaremos un código a tu correo.</p></div>
     <form id="f" style="display:flex;flex-direction:column;gap:14px">
-      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
-      <label class="campo">Contraseña<input type="password" id="clave" autocomplete="${crear ? 'new-password' : 'current-password'}" minlength="8" required>
-        ${crear ? '<span class="ayuda">Mínimo 8 caracteres.</span>' : ''}</label>
+      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required value="${esc(emailPrevio)}"></label>
       <p class="error" id="err" hidden></p>
-      <button class="btn" type="submit">${crear ? 'Crear cuenta' : 'Entrar'}</button>
-    </form>
-    <button class="btn claro" id="cambiar">${crear ? 'Ya tengo cuenta' : 'Crear mi cuenta (primera vez)'}</button>
-    ${crear ? '' : '<button class="btn claro" id="olvido" style="background:none;text-decoration:underline;color:var(--gris)">¿Olvidaste tu contraseña?</button>'}
-  </div>`;
-  document.getElementById('cambiar').onclick = () => vistaAcceso(crear ? 'entrar' : 'crear');
-  if (document.getElementById('olvido')) document.getElementById('olvido').onclick = vistaOlvido;
-  document.getElementById('f').onsubmit = async e => {
+      <button class="btn" type="submit">Enviar código</button>
+    </form></div>`;
+  const $id = x => document.getElementById(x);
+  $id('f').onsubmit = async e => {
     e.preventDefault();
-    const err = document.getElementById('err'); err.hidden = true;
-    const email = document.getElementById('email').value.trim(), password = document.getElementById('clave').value;
-    const boton = e.target.querySelector('button'); boton.disabled = true;
-    if (crear) {
-      const { data, error } = await sb.auth.signUp({ email, password });
-      boton.disabled = false;
-      if (error) { err.textContent = error.message; err.hidden = false; return; }
-      if (!data.session) {
-        app.innerHTML = `<div class="acceso"><h1>Cuenta creada</h1><p class="sub">Avisa en el chat para activarla como administrador. Después entra con tu correo y contraseña.</p><button class="btn" id="ir">Ir a entrar</button></div>`;
-        document.getElementById('ir').onclick = () => vistaAcceso('entrar');
-      }
-    } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      boton.disabled = false;
-      if (error) {
-        err.textContent = /confirm/i.test(error.message) ? 'La cuenta aún no está activada. Avisa en el chat para activarla.' : 'Correo o contraseña incorrectos.';
-        err.hidden = false;
-      }
-    }
-  };
-}
-function vistaOlvido(){
-  app.innerHTML = `<div class="acceso"><div><p style="font-size:22px;font-weight:700">Recuperar contraseña</p><p class="sub">Te enviaremos un enlace para crear una nueva. Caduca en 1 hora.</p></div>
-    <form id="f" style="display:flex;flex-direction:column;gap:14px"><label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label><p class="error" id="err" hidden></p><button class="btn" type="submit">Enviar enlace</button></form>
-    <button class="btn claro" id="volver">Volver</button></div>`;
-  document.getElementById('volver').onclick = () => vistaAcceso();
-  document.getElementById('f').onsubmit = async e => {
-    e.preventDefault(); const b = e.target.querySelector('button'); b.disabled = true;
-    const { error } = await sb.auth.resetPasswordForEmail(document.getElementById('email').value.trim(), { redirectTo: 'https://pide.escaliadigital.com/admin' });
+    const email = $id('email').value.trim().toLowerCase(), b = e.target.querySelector('button'); b.disabled = true;
+    // Solo cuentas que ya existen: el panel de administración nunca crea cuentas nuevas
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
     b.disabled = false;
-    if (error && /rate|limit|seconds/i.test(error.message)) { const er = document.getElementById('err'); er.textContent = 'Espera un minuto antes de pedir otro enlace.'; er.hidden = false; return; }
-    app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Si ese correo tiene cuenta, te llegará un enlace en unos minutos (mira también en spam).</p><button class="btn claro" id="ir">Volver a entrar</button></div>`;
-    document.getElementById('ir').onclick = () => vistaAcceso();
+    if (error && /rate|limit|seconds|security/i.test(error.message)) { $id('err').textContent = 'Espera un minuto antes de pedir otro código.'; $id('err').hidden = false; return; }
+    vistaCodigoAdmin(email);
   };
 }
-function vistaNuevaClave(){
-  app.innerHTML = `<div class="acceso"><div><p style="font-size:22px;font-weight:700">Nueva contraseña</p><p class="sub">Mínimo 8 caracteres.</p></div>
-    <form id="f" style="display:flex;flex-direction:column;gap:14px"><label class="campo">Nueva contraseña<input type="password" id="c1" autocomplete="new-password" minlength="8" required></label><label class="campo">Repítela<input type="password" id="c2" autocomplete="new-password" minlength="8" required></label><p class="error" id="err" hidden></p><button class="btn" type="submit">Guardar contraseña</button></form></div>`;
-  document.getElementById('f').onsubmit = async e => {
-    e.preventDefault(); const er = document.getElementById('err'); er.hidden = true;
-    const c1 = document.getElementById('c1').value;
-    if (c1 !== document.getElementById('c2').value) { er.textContent = 'Las dos contraseñas no coinciden.'; er.hidden = false; return; }
-    const { error } = await sb.auth.updateUser({ password: c1 });
-    if (error) { er.textContent = /same/i.test(error.message) ? 'Tiene que ser distinta de la anterior.' : 'No se pudo guardar. Vuelve a pedir el enlace.'; er.hidden = false; return; }
-    recuperando = false; history.replaceState(null, '', '/admin');
-    const { data: { session } } = await sb.auth.getSession(); usuario = null; await fijarSesion(session);
-    window.addEventListener('hashchange', ruta);
+function vistaCodigoAdmin(email){
+  app.innerHTML = `<div class="acceso">
+    <div><p style="font-size:22px;font-weight:700">Escribe el código</p><p class="sub">Si <strong>${esc(email)}</strong> es una cuenta de administración, te ha llegado un código. Mira también en spam.</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Código<input id="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required style="font-size:24px;letter-spacing:8px;text-align:center"></label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+    <button class="btn claro" id="otro">Volver</button></div>`;
+  const $id = x => document.getElementById(x);
+  $id('cod').focus();
+  $id('otro').onclick = () => vistaAcceso(email);
+  $id('f').onsubmit = async e => {
+    e.preventDefault();
+    const { error } = await sb.auth.verifyOtp({ email, token: $id('cod').value.replace(/\D/g, ''), type: 'email' });
+    if (error) { $id('err').textContent = /expired/i.test(error.message) ? 'El código ha caducado. Vuelve y pide otro.' : 'Código incorrecto.'; $id('err').hidden = false; }
   };
 }
 function vistaSinPermiso(){

@@ -74,101 +74,106 @@ function aviso(t) { const el = $('toast'); el.textContent = t; el.classList.add(
 async function fijarSesion(s) {
   usuario = s?.user || null;
   if (!usuario) return vistaAcceso();
-  marcarActividad();
   const { data: ids, error } = await sb.rpc('reclamar_invitacion');
   if (error || !ids || !ids.length) return vistaSinAcceso();
   const { data: n } = await sb.from('negocios').select('id,nombre,slug,pedidos_pausados').eq('id', ids[0]).single();
-  N = n; await cargar(); vistaPanel();
+  N = n;
+  if (CONTRATO && !(await contratoAceptado())) return vistaContrato();
+  await cargar(); vistaPanel();
 }
-let recuperando = /type=recovery/.test(location.hash);
-function marcarActividad() { try { localStorage.setItem('panel_actividad', String(Date.now())); } catch (e) {} }
+
+/* ---------- Aceptación del contrato (primera entrada y cada versión nueva) ---------- */
+// Se activa cuando el contrato y el anexo estén cerrados: version + rutas de las páginas con el texto.
+const CONTRATO = null; // ej.: { version: 'v1-2026-11', contrato: '/legal/contrato-v1.html', anexo: '/legal/anexo-v1.html' }
+async function contratoAceptado() {
+  const { data } = await sb.from('aceptaciones').select('documento').eq('negocio_id', N.id).eq('version', CONTRATO.version);
+  const docs = new Set((data || []).map(x => x.documento));
+  return docs.has('contrato_servicio') && docs.has('anexo_encargado');
+}
+function vistaContrato() {
+  app.innerHTML = `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
+  <main>
+    <h1>Antes de empezar</h1>
+    <p class="sub">Para usar el panel tienes que leer y aceptar estos dos documentos. Se guarda la fecha y la versión que aceptas.</p>
+    <a class="btn claro" href="${CONTRATO.contrato}" target="_blank" rel="noopener" style="text-decoration:none">Leer el contrato de servicio</a>
+    <a class="btn claro" href="${CONTRATO.anexo}" target="_blank" rel="noopener" style="text-decoration:none">Leer el anexo de protección de datos</a>
+    <label style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.45"><input type="checkbox" id="acepto" style="width:22px;height:22px;flex:none;margin-top:1px">He leído y acepto el contrato de servicio y el anexo de encargo de tratamiento de datos (versión ${esc(CONTRATO.version)}).</label>
+    <p class="error" id="err" hidden></p>
+    <button class="btn" id="aceptar">Aceptar y entrar</button>
+  </main>`;
+  $('salir').onclick = () => sb.auth.signOut();
+  $('aceptar').onclick = async () => {
+    if (!$('acepto').checked) { $('err').textContent = 'Marca la casilla para continuar.'; $('err').hidden = false; return; }
+    $('aceptar').disabled = true;
+    const base = { negocio_id: N.id, email: usuario.email, version: CONTRATO.version, navegador: navigator.userAgent.slice(0, 300) };
+    const { error } = await sb.from('aceptaciones').insert([{ ...base, documento: 'contrato_servicio' }, { ...base, documento: 'anexo_encargado' }]);
+    if (error) { $('aceptar').disabled = false; $('err').textContent = 'No se pudo guardar. Revisa la conexión.'; $('err').hidden = false; return; }
+    await cargar(); vistaPanel();
+  };
+}
 (async () => {
   sb.auth.onAuthStateChange((ev, s) => {
-    if (ev === 'PASSWORD_RECOVERY') { recuperando = true; usuario = s?.user || null; return vistaNuevaClave(); }
-    if (recuperando) return;
     if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s);
   });
   const { data: { session } } = await sb.auth.getSession();
-  if (recuperando) return session ? vistaNuevaClave() : null;
   await fijarSesion(session);
 })();
-['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, marcarActividad, { passive: true }));
 
 /* ---------- Acceso ---------- */
-function vistaAcceso(modo = 'entrar') {
-  const crear = modo === 'crear';
+/* ---------- Acceso con código al correo (sin contraseña) ---------- */
+function vistaAcceso(emailPrevio = '') {
   app.innerHTML = `<div class="acceso">
-    <div><h1>Panel del negocio</h1><p class="sub">${crear ? 'Crea tu cuenta con el correo que diste para tu negocio' : 'Entra con tu correo y tu contraseña'}</p></div>
+    <div><h1>Panel del negocio</h1><p class="sub">Escribe tu correo y te enviaremos un código para entrar. No necesitas contraseña.</p></div>
     <form id="f" style="display:flex;flex-direction:column;gap:14px">
-      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
-      <label class="campo">Contraseña<input type="password" id="clave" autocomplete="${crear ? 'new-password' : 'current-password'}" minlength="8" required>${crear ? '<span class="sub" style="font-weight:400">Mínimo 8 caracteres.</span>' : ''}</label>
+      <label class="campo">Correo<input type="email" id="email" autocomplete="email" inputmode="email" required value="${esc(emailPrevio)}"></label>
       <p class="error" id="err" hidden></p>
-      <button class="btn" type="submit">${crear ? 'Crear cuenta' : 'Entrar'}</button>
+      <button class="btn" type="submit">Enviar código</button>
     </form>
-    <button class="btn claro" id="cambiar">${crear ? 'Ya tengo cuenta' : 'Es mi primera vez: crear cuenta'}</button>
-    ${crear ? '' : '<button class="lnk" id="olvido" style="align-self:center">¿Olvidaste tu contraseña?</button>'}
+    <p class="sub" style="text-align:center">Solo pueden entrar los correos dados de alta por Escalia.</p>
   </div>`;
-  $('cambiar').onclick = () => vistaAcceso(crear ? 'entrar' : 'crear');
-  if ($('olvido')) $('olvido').onclick = vistaOlvido;
+  $('email').focus();
+  $('f').onsubmit = async e => {
+    e.preventDefault();
+    const email = $('email').value.trim().toLowerCase();
+    const b = e.target.querySelector('button'); b.disabled = true; b.textContent = 'Enviando…';
+    const err = await enviarCodigo(email);
+    b.disabled = false; b.textContent = 'Enviar código';
+    if (err) { $('err').textContent = err; $('err').hidden = false; return; }
+    vistaCodigo(email);
+  };
+}
+async function enviarCodigo(email) {
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: 'https://pide.escaliadigital.com/panel' } });
+  if (!error) return null;
+  if (/rate|limit|seconds|security purposes/i.test(error.message)) return 'Has pedido varios códigos seguidos. Espera un minuto y vuelve a intentarlo.';
+  if (/invalid/i.test(error.message)) return 'Ese correo no es válido. Revísalo.';
+  return 'No se pudo enviar el código. Revisa tu conexión e inténtalo de nuevo.';
+}
+function vistaCodigo(email) {
+  app.innerHTML = `<div class="acceso">
+    <div><h1>Revisa tu correo</h1><p class="sub">Hemos enviado un código a <strong>${esc(email)}</strong>. Escríbelo aquí. Si no lo ves, mira en spam.</p></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:14px">
+      <label class="campo">Código<input id="cod" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" maxlength="8" required style="font-size:26px;letter-spacing:8px;text-align:center"></label>
+      <p class="error" id="err" hidden></p>
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+    <button class="btn claro" id="reenviar" disabled>Reenviar código (60)</button>
+    <button class="lnk" id="otro" style="align-self:center">Usar otro correo</button>
+  </div>`;
+  $('cod').focus();
+  let t = 60; const r = $('reenviar');
+  const reloj = setInterval(() => { t--; if (t <= 0) { clearInterval(reloj); r.disabled = false; r.textContent = 'Reenviar código'; } else r.textContent = `Reenviar código (${t})`; }, 1000);
+  r.onclick = async () => { r.disabled = true; const e = await enviarCodigo(email); aviso(e || 'Código reenviado'); if (e) r.disabled = false; };
+  $('otro').onclick = () => { clearInterval(reloj); vistaAcceso(email); };
+  $('cod').oninput = () => { $('cod').value = $('cod').value.replace(/\D/g, ''); };
   $('f').onsubmit = async e => {
     e.preventDefault();
     const err = $('err'); err.hidden = true;
-    const email = $('email').value.trim(), password = $('clave').value;
     const b = e.target.querySelector('button'); b.disabled = true;
-    if (crear) {
-      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: 'https://pide.escaliadigital.com/panel' } });
-      b.disabled = false;
-      if (error) { err.textContent = /already|registered/i.test(error.message) ? 'Ese correo ya tiene cuenta. Pulsa "Ya tengo cuenta".' : 'No se pudo crear la cuenta. Revisa el correo y la contraseña.'; err.hidden = false; return; }
-      if (!data.session) app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Te hemos enviado un correo para confirmar la cuenta. Ábrelo, pulsa el enlace y vuelve aquí para entrar.</p><button class="btn" id="ir">Ir a entrar</button></div>`, $('ir').onclick = () => vistaAcceso();
-    } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      b.disabled = false;
-      if (error) { err.textContent = /confirm/i.test(error.message) ? 'Aún no has confirmado tu correo. Busca el correo de confirmación (mira también en spam).' : 'Correo o contraseña incorrectos.'; err.hidden = false; }
-    }
-  };
-}
-function vistaOlvido() {
-  app.innerHTML = `<div class="acceso">
-    <div><h1>Recuperar contraseña</h1><p class="sub">Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva. El enlace caduca en 1 hora.</p></div>
-    <form id="f" style="display:flex;flex-direction:column;gap:14px">
-      <label class="campo">Correo<input type="email" id="email" autocomplete="email" required></label>
-      <p class="error" id="err" hidden></p>
-      <button class="btn" type="submit">Enviar enlace</button>
-    </form>
-    <button class="btn claro" id="volver">Volver</button>
-  </div>`;
-  $('volver').onclick = () => vistaAcceso();
-  $('f').onsubmit = async e => {
-    e.preventDefault();
-    const b = e.target.querySelector('button'); b.disabled = true;
-    const { error } = await sb.auth.resetPasswordForEmail($('email').value.trim(), { redirectTo: 'https://pide.escaliadigital.com/panel' });
+    const { error } = await sb.auth.verifyOtp({ email, token: $('cod').value.trim(), type: 'email' });
     b.disabled = false;
-    if (error && /rate|limit|seconds/i.test(error.message)) { $('err').textContent = 'Espera un minuto antes de pedir otro enlace.'; $('err').hidden = false; return; }
-    // Mismo mensaje exista o no la cuenta: así nadie puede averiguar qué correos están registrados
-    app.innerHTML = `<div class="acceso"><h1>Revisa tu correo</h1><p class="sub">Si ese correo tiene cuenta, te llegará un enlace en unos minutos (mira también en spam). Ábrelo desde este mismo móvil u ordenador.</p><button class="btn claro" id="ir">Volver a entrar</button></div>`;
-    $('ir').onclick = () => vistaAcceso();
-  };
-}
-function vistaNuevaClave() {
-  app.innerHTML = `<div class="acceso">
-    <div><h1>Nueva contraseña</h1><p class="sub">Elige una contraseña nueva de al menos 8 caracteres.</p></div>
-    <form id="f" style="display:flex;flex-direction:column;gap:14px">
-      <label class="campo">Nueva contraseña<input type="password" id="c1" autocomplete="new-password" minlength="8" required></label>
-      <label class="campo">Repítela<input type="password" id="c2" autocomplete="new-password" minlength="8" required></label>
-      <p class="error" id="err" hidden></p>
-      <button class="btn" type="submit">Guardar contraseña</button>
-    </form>
-  </div>`;
-  $('f').onsubmit = async e => {
-    e.preventDefault();
-    const err = $('err'); err.hidden = true;
-    if ($('c1').value !== $('c2').value) { err.textContent = 'Las dos contraseñas no coinciden.'; err.hidden = false; return; }
-    const b = e.target.querySelector('button'); b.disabled = true;
-    const { error } = await sb.auth.updateUser({ password: $('c1').value });
-    b.disabled = false;
-    if (error) { err.textContent = /weak|pwned|leaked|compromised/i.test(error.message) ? 'Esa contraseña es demasiado fácil o ha aparecido en filtraciones. Elige otra.' : /same/i.test(error.message) ? 'Tiene que ser distinta de la anterior.' : 'No se pudo guardar. Vuelve a pedir el enlace.'; err.hidden = false; return; }
-    recuperando = false; aviso('Contraseña cambiada');
-    const { data: { session } } = await sb.auth.getSession(); usuario = null; fijarSesion(session);
+    if (error) { err.textContent = /expired/i.test(error.message) ? 'El código ha caducado. Pulsa "Reenviar código".' : 'Código incorrecto. Revísalo e inténtalo de nuevo.'; err.hidden = false; return; }
+    clearInterval(reloj);
   };
 }
 function vistaSinAcceso() {
@@ -231,6 +236,7 @@ function interruptor(id, on, etiqueta) {
 }
 function pintarLista() {
   const el = $('lista');
+  if (!pestana) { el.innerHTML = '<p class="sub">Todavía no hay productos en la carta.</p>'; return; }
   if (pestana?.startsWith('c')) {
     const ps = PRODS.filter(p => p.categoria_id === pestana.slice(1));
     el.innerHTML = ps.map(p => `<div class="fila${p.disponible ? '' : ' off'}"><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><div class="t"><div class="n">${esc(p.nombre)}</div><div class="s">${eur(p.precio)}</div></div>${interruptor('p:' + p.id, p.disponible, p.nombre + ' disponible')}</div>`).join('');
