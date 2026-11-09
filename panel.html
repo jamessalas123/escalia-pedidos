@@ -102,6 +102,11 @@ main.ancho{max-width:1280px}
 .tk-go.preparando{background:var(--verde)}
 .tk-go.listo{background:#000}
 .tk-mas{display:flex;justify-content:space-between}
+.tabs button.ag-si{border-color:var(--rojo);color:var(--rojo);font-weight:700}
+.tabs button.ag-si.on{background:var(--rojo);color:#fff}
+.tabs button.ag-no{border-color:#BFE3CC;color:var(--verde)}
+.tabs button.ag-no.on{background:var(--verde);color:#fff;border-color:var(--verde)}
+.avisoag{align-self:center;border:1px solid #F3C4C0;background:#FDECEC;color:#8E1B12;border-radius:999px;padding:10px 18px;font-weight:600;cursor:pointer;font-size:15px}
 .etiq.most{background:#E8EEF9;color:#1A3F7A}
 .etiq.pagado{background:#E7F5EC;color:#0B6B37}
 .acciones{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
@@ -290,6 +295,7 @@ async function cargar() {
   ]);
   CATS = (c.data || []).filter(x => x.activa); PRODS = p.data || []; GRUPOS = g.data || []; OPCS = o.data || [];
 }
+const contarAgotados = () => PRODS.filter(p => !p.disponible).length + opcionesUnicas().filter(x => !x.disponible).length;
 const esBebidaCat = c => /bebida/i.test(c?.nombre || '');
 const grupoDe = o => GRUPOS.find(g => g.id === o.grupo_id) || {};
 // Opciones agrupadas por nombre (una salsa aparece en muchos productos: se activa/agota en todos a la vez)
@@ -317,8 +323,9 @@ function conectarCabecera() {
 }
 function vistaCarta() {
   const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
-  const tabs = [...CATS.filter(c => PRODS.some(p => p.categoria_id === c.id)).map(c => ({ k: 'c' + c.id, t: c.nombre })), ...grupos.map(gn => ({ k: 'g' + gn, t: gn }))];
-  if (!pestana || !tabs.some(t => t.k === pestana)) pestana = tabs[0]?.k;
+  const nAg = contarAgotados();
+  const tabs = [{ k: 'agot', t: nAg ? `Agotados (${nAg})` : 'Todo disponible ✓' }, ...CATS.filter(c => PRODS.some(p => p.categoria_id === c.id)).map(c => ({ k: 'c' + c.id, t: c.nombre })), ...grupos.map(gn => ({ k: 'g' + gn, t: gn }))];
+  if (!pestana || !tabs.some(t => t.k === pestana)) pestana = nAg ? 'agot' : tabs[1]?.k;
   const agotados = PRODS.filter(p => !p.disponible).length + opcionesUnicas().filter(x => !x.disponible).length;
   app.innerHTML = `${cabecera()}
   <main>
@@ -330,7 +337,7 @@ function vistaCarta() {
     </section>
     <section class="tarjeta" aria-labelledby="t2">
       <div><h2 id="t2">Agotados</h2><p class="sub">Apaga lo que no tengas ahora. Se oculta o sale como agotado en la carta al momento.${agotados ? ` <strong style="color:var(--rojo)">${agotados} apagado${agotados > 1 ? 's' : ''}.</strong>` : ''}</p></div>
-      <nav class="tabs" aria-label="Secciones">${tabs.map(t => `<button data-t="${esc(t.k)}" class="${t.k === pestana ? 'on' : ''}">${esc(t.t)}</button>`).join('')}</nav>
+      <nav class="tabs" aria-label="Secciones">${tabs.map(t => `<button data-t="${esc(t.k)}" class="${t.k === pestana ? 'on' : ''}${t.k === 'agot' ? (nAg ? ' ag-si' : ' ag-no') : ''}">${esc(t.t)}</button>`).join('')}</nav>
       <div id="lista"></div>
     </section>
   </main>`;
@@ -346,6 +353,15 @@ function interruptor(id, on, etiqueta) {
 function pintarLista() {
   const el = $('lista');
   if (!pestana) { el.innerHTML = '<p class="sub">Todavía no hay productos en la carta.</p>'; return; }
+  if (pestana === 'agot') {
+    const ps = PRODS.filter(p => !p.disponible), os = opcionesUnicas().filter(x => !x.disponible);
+    if (!ps.length && !os.length) { el.innerHTML = '<p class="sub" style="color:var(--verde);font-weight:600;padding:12px 0">✓ Todo está disponible. Cuando apagues algo, aparecerá aquí para volver a activarlo rápido.</p>'; return; }
+    el.innerHTML = `<p class="sub" style="padding-bottom:6px">Activa lo que ya tengas. Desaparece de esta lista al momento.</p>` +
+      ps.map(p => `<div class="fila off"><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><div class="t"><div class="n">${esc(p.nombre)}</div><div class="s">${esc(CATS.find(c => c.id === p.categoria_id)?.nombre || '')}</div></div>${interruptor('p:' + p.id, false, p.nombre + ' disponible')}</div>`).join('') +
+      os.map(o => `<div class="fila off"><div class="t"><div class="n">${esc(o.nombre)}</div><div class="s">${esc(o.grupo)} · en todos los productos</div></div>${interruptor('o:' + o.grupo + '|' + o.nombre, false, o.nombre + ' disponible')}</div>`).join('');
+    el.querySelectorAll('[data-sw]').forEach(i => i.onchange = () => cambiar(i));
+    return;
+  }
   if (pestana?.startsWith('c')) {
     const ps = PRODS.filter(p => p.categoria_id === pestana.slice(1));
     el.innerHTML = ps.map(p => `<div class="fila${p.disponible ? '' : ' off'}"><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><div class="t"><div class="n">${esc(p.nombre)}</div><div class="s">${eur(p.precio)}</div></div>${interruptor('p:' + p.id, p.disponible, p.nombre + ' disponible')}</div>`).join('');
@@ -430,6 +446,7 @@ function vistaPedidos() {
   app.innerHTML = `${cabecera()}
   <main class="ancho">
     ${sonidoOk ? '' : '<button class="btn claro" id="sonido">🔔 Activar sonido de pedidos nuevos</button>'}
+    ${contarAgotados() ? `<button class="avisoag" id="verAg">⚠ Tienes ${contarAgotados()} agotado${contarAgotados() > 1 ? 's' : ''} — <u>Ver y activar</u></button>` : ''}
     ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
     <div class="acciones"><button class="btn" id="nuevoMost">+ Pedido en mostrador</button>
     <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form></div>
@@ -441,6 +458,7 @@ function vistaPedidos() {
   </main>`;
   conectarCabecera();
   if ($('sonido')) $('sonido').onclick = () => { sonidoOk = true; pitido(); vistaPanel(); };
+  if ($('verAg')) $('verAg').onclick = () => { vista = 'carta'; pestana = 'agot'; vistaPanel(); window.scrollTo(0, 0); };
   $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
   $('nuevoMost').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null }; vista = 'mostrador'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => imprimir(PEDIDOS.find(x => x.id === b.dataset.imp)));
