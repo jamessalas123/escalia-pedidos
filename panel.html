@@ -66,15 +66,15 @@ main.ancho{max-width:1280px}
 .colnav button{flex:1;height:46px;border-radius:10px;border:1px solid var(--linea);background:#fff;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap;padding:0 4px}
 .colnav button span{display:inline-block;min-width:22px;padding:1px 6px;border-radius:999px;background:var(--suave);margin-left:4px}
 .colnav button.on{background:#000;color:#fff;border-color:#000}
+.colnav button.on[data-col=nuevo]{background:var(--rojo);border-color:var(--rojo)}.colnav button.on[data-col=preparando]{background:#F5C400;border-color:#F5C400;color:#000}.colnav button.on[data-col=listo]{background:var(--verde);border-color:var(--verde)}
 .colnav button.on span{background:#fff;color:#000}
 .tablero{display:block}
-.columna{display:none;flex-direction:column;gap:12px}
+.columna{display:none;flex-direction:column;gap:10px;border-radius:14px;padding:10px}
 .columna.on{display:flex}
-.colt{display:none;font-size:15px;padding:8px 12px;border-radius:10px}
+.columna.nuevo{background:#FDECEA}.columna.preparando{background:#FFF7CC}.columna.listo{background:#EAF6EE}
+.colt{display:none;font-size:16px;padding:2px 4px;margin:0}
 .colt span{float:right}
-.colt.nuevo{background:#FDECEC;color:#8E1B12}
-.colt.preparando{background:#FFF4E0;color:#7A4A00}
-.colt.listo{background:#E7F5EC;color:#0B6B37}
+.colt.nuevo{color:#8E1B12}.colt.preparando{color:#6B5300}.colt.listo{color:#0B6B37}
 .vacio{text-align:center;padding:24px 8px}
 .hechos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;opacity:.75}
 @media (min-width:900px){
@@ -83,25 +83,33 @@ main.ancho{max-width:1280px}
   .columna,.columna.on{display:flex}
   .colt{display:block}
 }
-.tk{background:#fff;border:1px solid var(--linea);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;border-top:6px solid #C9C9C9}
-.tk.nuevo{border-top-color:var(--rojo)}
-.tk.preparando{border-top-color:#E59A00}
-.tk.listo{border-top-color:var(--verde)}
+.tk{background:#fff;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:230px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.hechos .tk{min-height:0;border:1px solid var(--linea)}
 .tk.buscado{outline:3px solid #1A4FA0;outline-offset:2px}
-.tk-cab{display:flex;align-items:center;gap:12px}
-.tk-num{font-size:34px;font-weight:800;line-height:1}
-.tk-quien{display:flex;flex-direction:column;font-size:13px;color:var(--gris);min-width:0}
-.tk-quien b{color:#000;font-size:15px}
+.tk-cab{display:flex;align-items:center;gap:10px}
+.tk-num{font-size:30px;font-weight:800;line-height:1}
+.tk-quien{display:flex;flex-direction:column;font-size:13px;color:var(--gris);min-width:0;flex:1}
+.tk-quien b{color:#000;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tk-quien .tarde{color:var(--rojo);font-weight:700}
-.tk-lineas{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
-.tk-lineas li{font-size:15px;line-height:1.35}
-.tk-lineas small{display:block;color:var(--gris);font-size:13px}
-.nota{color:#8A5300 !important;font-size:13px}
-.tk-total{font-weight:700}
-.tk-go{height:52px;font-size:17px}
-.tk-go.preparando{background:var(--verde)}
-.tk-go.listo{background:#000}
-.tk-mas{display:flex;justify-content:space-between}
+.tk-lineas{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;flex:1}
+.tk-lineas li{font-size:17px;line-height:1.3}
+.tk-lineas li b{display:inline-block;min-width:30px}
+.tk-lineas small{display:block;color:#333;font-size:15px;padding-left:30px}
+.tk-lineas em{display:inline-block;font-style:normal;margin:3px 0 0 30px;padding:2px 8px;border-radius:6px;background:#FFF1C2;color:#6B4A00;font-size:14px;font-weight:700}
+.tk-obs{margin:0;padding:8px 10px;border-radius:8px;background:var(--suave);font-size:14px}
+.tk-avis{margin:0;font-size:13px;color:#0B6B37;font-weight:600}
+.tk-pie{display:flex;align-items:center;gap:8px}
+.tk-total{font-weight:700;flex:1;font-size:15px}
+.tk-go{width:auto;height:46px;padding:0 18px;font-size:15px;font-weight:700}
+.tk-go.nuevo{background:var(--rojo)}.tk-go.preparando{background:#F5C400;color:#000}.tk-go.listo{background:var(--verde)}
+.mn{position:relative}
+.mn summary{list-style:none;cursor:pointer;width:40px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:22px;color:var(--gris);line-height:1}
+.mn summary::-webkit-details-marker{display:none}
+.mn[open] summary{background:var(--suave)}
+.mn .menu{position:absolute;right:0;top:40px;z-index:6;background:#fff;border:1px solid var(--linea);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:6px;display:flex;flex-direction:column;min-width:200px}
+.mn .menu button{border:0;background:none;text-align:left;padding:11px 12px;border-radius:8px;font-size:15px;cursor:pointer}
+.mn .menu button:hover{background:var(--suave)}
+.mn .menu .rojo{color:var(--rojo)}
 .tabs button.ag-si{border-color:var(--rojo);color:var(--rojo);font-weight:700}
 .tabs button.ag-si.on{background:var(--rojo);color:#fff}
 .tabs button.ag-no{border-color:#BFE3CC;color:var(--verde)}
@@ -378,7 +386,7 @@ const ESTADOS = { nuevo: 'Nuevo', preparando: 'Preparando', listo: 'Listo', entr
 const ANTERIOR = { preparando: 'nuevo', listo: 'preparando', entregado: 'listo', cancelado: 'nuevo' };
 const hoyMadrid = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 async function cargarPedidos() {
-  const { data } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
+  const { data } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,avisado_en,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
   PEDIDOS = data || [];
 }
@@ -407,30 +415,37 @@ function hora(iso) { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2
 function hace(iso) { const m = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h ${m % 60} min`; }
 const minutos = iso => (Date.now() - new Date(iso)) / 60000;
 const AVISO_MIN = 15; // a partir de aquí el tiempo se pone en rojo
-const BOTON = { nuevo: ['preparando', 'Empezar'], preparando: ['listo', 'Listo'], listo: ['entregado', 'Entregado'] };
 let colMovil = 'nuevo', buscado = '';
+let menuAbierto = null;
+const telDe = p => { const t = (p.cliente_telefono || '').replace(/[^\d]/g, ''); return t.length === 9 ? '34' + t : t; };
+const waDe = p => `https://wa.me/${telDe(p)}?text=${encodeURIComponent(`Hola ${p.cliente_nombre || ''} 👋 Tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`)}`;
 function tarjetaPedido(p) {
-  const tel = (p.cliente_telefono || '').replace(/[^\d]/g, '');
-  const wa = `https://wa.me/${tel.length === 9 ? '34' + tel : tel}?text=${encodeURIComponent(`Hola ${p.cliente_nombre || ''}, tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`)}`;
+  const tel = telDe(p);
   const lineas = (p.lineas_pedido || []).map(l => {
     const ops = (l.opciones || []).map(o => o.nombre).join(', ');
-    return `<li><b>${l.cantidad}×</b> ${esc(l.nombre_producto)}${ops ? `<small>${esc(ops)}</small>` : ''}${l.observaciones ? `<small class="nota">Nota: ${esc(l.observaciones)}</small>` : ''}</li>`;
+    return `<li><b>${l.cantidad}×</b> ${esc(l.nombre_producto)}${ops ? `<small>${esc(ops)}</small>` : ''}${l.observaciones ? `<em>⚠ ${esc(l.observaciones)}</em>` : ''}</li>`;
   }).join('');
-  const b = BOTON[p.estado], tarde = ['nuevo', 'preparando'].includes(p.estado) && minutos(p.creado_en) >= AVISO_MIN;
+  const tarde = ['nuevo', 'preparando'].includes(p.estado) && minutos(p.creado_en) >= AVISO_MIN;
   const resaltado = buscado && p.codigo.toLowerCase() === buscado;
+  let boton = '';
+  if (p.estado === 'nuevo') boton = `<button class="btn tk-go nuevo" data-est="${p.id}|preparando">Empezar</button>`;
+  if (p.estado === 'preparando') boton = tel ? `<button class="btn tk-go preparando" data-listo="${p.id}">Listo · avisar</button>` : `<button class="btn tk-go preparando" data-est="${p.id}|listo">Listo</button>`;
+  if (p.estado === 'listo') boton = `<button class="btn tk-go listo" data-est="${p.id}|entregado">Entregado</button>`;
+  const avis = p.estado === 'listo' ? (tel ? (p.avisado_en ? `<p class="tk-avis">✓ Cliente avisado ${hora(p.avisado_en)}</p>` : '<p class="tk-avis" style="color:var(--rojo)">Sin avisar por WhatsApp (⋯ → Avisar)</p>') : '<p class="tk-avis">Mostrador: dile el número en voz alta</p>') : '';
+  const menu = [
+    ANTERIOR[p.estado] ? `<button data-est="${p.id}|${ANTERIOR[p.estado]}">↶ Deshacer</button>` : '',
+    p.estado === 'listo' && tel ? `<button data-wa="${p.id}">💬 ${p.avisado_en ? 'Volver a avisar' : 'Avisar'} por WhatsApp</button>` : '',
+    `<button data-imp="${p.id}">🖨 Imprimir</button>`,
+    ['nuevo', 'preparando'].includes(p.estado) ? `<button class="rojo" data-est="${p.id}|cancelado">✕ Cancelar pedido</button>` : ''
+  ].join('');
   return `<article class="tk ${p.estado}${resaltado ? ' buscado' : ''}" id="ped-${p.id}" aria-label="Pedido ${esc(p.codigo)}">
     <div class="tk-cab"><span class="tk-num">${esc(p.codigo)}</span>
-      <span class="tk-quien"><b>${esc(p.cliente_nombre || 'Mostrador')}</b><span class="${tarde ? 'tarde' : ''}">${hace(p.creado_en)} · ${hora(p.creado_en)}</span></span></div>
+      <span class="tk-quien"><b>${esc(p.cliente_nombre || 'Mostrador')}</b><span class="${tarde ? 'tarde' : ''}">${tarde ? '⏱ ' : ''}${hace(p.creado_en)} · ${hora(p.creado_en)}</span></span>
+      <details class="mn" data-mn="${p.id}" ${menuAbierto === p.id ? 'open' : ''}><summary aria-label="Más opciones">⋯</summary><div class="menu">${menu}</div></details></div>
     <ul class="tk-lineas">${lineas}</ul>
-    ${p.notas ? `<p class="nota">Observaciones: ${esc(p.notas)}</p>` : ''}
-    <p class="tk-total">${eur(p.total)} ${etiquetaPago(p)}</p>
-    ${b ? `<button class="btn tk-go ${p.estado}" data-est="${p.id}|${b[0]}">${b[1]}</button>` : ''}
-    ${p.estado === 'listo' && tel ? `<a class="btn claro" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none;height:44px">Avisar por WhatsApp</a>` : ''}
-    <div class="tk-mas">
-      ${ANTERIOR[p.estado] ? `<button class="lnk" data-est="${p.id}|${ANTERIOR[p.estado]}">↶ Deshacer</button>` : ''}
-      <button class="lnk" data-imp="${p.id}">🖨 Imprimir</button>
-      ${['nuevo', 'preparando'].includes(p.estado) ? `<button class="lnk" style="color:var(--rojo)" data-est="${p.id}|cancelado">Cancelar</button>` : ''}
-    </div>
+    ${p.notas ? `<p class="tk-obs">📝 ${esc(p.notas)}</p>` : ''}
+    ${avis}
+    <div class="tk-pie"><span class="tk-total">${eur(p.total)} ${etiquetaPago(p)}</span>${boton}</div>
   </article>`;
 }
 function etiquetaPago(p) {
@@ -451,7 +466,7 @@ function vistaPedidos() {
     <div class="acciones"><button class="btn" id="nuevoMost">+ Pedido en mostrador</button>
     <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form></div>
     <nav class="colnav" aria-label="Estados">${COLUMNAS.map(([e, t]) => `<button data-col="${e}" class="${colMovil === e ? 'on' : ''}">${t} <span>${por(e).length}</span></button>`).join('')}</nav>
-    <div class="tablero">${COLUMNAS.map(([e, t]) => `<section class="columna ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}">${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
+    <div class="tablero">${COLUMNAS.map(([e, t]) => `<section class="columna ${e} ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}">${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
     <button class="btn claro" id="hechos" style="max-width:520px;align-self:center">${verHechos ? 'Ocultar' : 'Ver'} entregados y cancelados de hoy (${hechos.length})</button>
     ${verHechos ? `<div class="hechos">${hechos.map(tarjetaPedido).join('')}</div>` : ''}
     <p class="sub" style="text-align:center">Entregado hoy: <strong>${eur(entregados.reduce((a, p) => a + Number(p.total), 0))}</strong> en ${entregados.length} pedidos</p>
@@ -474,6 +489,17 @@ function vistaPedidos() {
     vistaPanel();
     if (p) setTimeout(() => $('ped-' + p.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   };
+  app.querySelectorAll('[data-mn]').forEach(d => d.ontoggle = () => { if (d.open) { menuAbierto = d.dataset.mn; app.querySelectorAll('[data-mn]').forEach(o => { if (o !== d) o.open = false; }); } else if (menuAbierto === d.dataset.mn) menuAbierto = null; });
+  // "Listo · avisar": abre WhatsApp con el mensaje (en el mismo toque, para que el navegador no lo bloquee) y marca el pedido como listo
+  const avisar = async (p, cambiarEstado) => {
+    window.open(waDe(p), '_blank', 'noopener');
+    const cambios = { avisado_en: new Date().toISOString() }; if (cambiarEstado) cambios.estado = 'listo';
+    const { error } = await sb.from('pedidos').update(cambios).eq('id', p.id);
+    if (error) return aviso('No se pudo guardar. Revisa la conexión.');
+    Object.assign(p, cambios); menuAbierto = null; aviso(p.codigo + (cambiarEstado ? ' → Listo. Pulsa enviar en WhatsApp' : ': WhatsApp abierto')); vistaPanel();
+  };
+  app.querySelectorAll('[data-listo]').forEach(b => b.onclick = () => { b.disabled = true; avisar(PEDIDOS.find(x => x.id === b.dataset.listo), true); });
+  app.querySelectorAll('[data-wa]').forEach(b => b.onclick = () => avisar(PEDIDOS.find(x => x.id === b.dataset.wa), false));
   let confirmar = null;
   app.querySelectorAll('[data-est]').forEach(b => b.onclick = async () => {
     const [id, est] = b.dataset.est.split('|');
@@ -481,7 +507,7 @@ function vistaPedidos() {
       confirmar = b; const txt = b.textContent; b.textContent = '¿Seguro? Toca otra vez';
       setTimeout(() => { if (confirmar === b) { confirmar = null; b.textContent = txt; } }, 4000); return;
     }
-    b.disabled = true;
+    b.disabled = true; menuAbierto = null;
     const { error } = await sb.from('pedidos').update({ estado: est }).eq('id', id);
     if (error) { b.disabled = false; return aviso('No se pudo guardar. Revisa la conexión.'); }
     const p = PEDIDOS.find(x => x.id === id); if (p) p.estado = est;
@@ -490,7 +516,7 @@ function vistaPedidos() {
   });
 }
 // Actualiza los "hace X min" cada 30 s
-setInterval(() => { if (N && vista === 'pedidos' && !document.querySelector('#bus:focus')) vistaPanel(); }, 30000);
+setInterval(() => { if (N && vista === 'pedidos' && !document.querySelector('#bus:focus') && !menuAbierto) vistaPanel(); }, 30000);
 
 /* ---------- Pedido en mostrador (clientes sin móvil, cobran en caja) ---------- */
 let MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null };

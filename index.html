@@ -37,6 +37,10 @@ h1{margin:0;font-size:26px;letter-spacing:-.02em}
 .tabs{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--b);display:flex;gap:22px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-top:18px}
 .tabs a{flex:none;padding:13px 0 10px;border-bottom:3px solid transparent;color:#000;text-decoration:none;font-size:15px}
 .tabs a.on{border-color:#000;font-weight:600}
+.listoya{position:fixed;inset:0;z-index:60;background:#0B7A3E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;font-size:18px;line-height:1.4}
+.listoya p{margin:0}.listoya .t{font-size:28px;font-weight:800}
+.listoya .n{font-size:100px;font-weight:900;line-height:1;background:#fff;color:#0B7A3E;border-radius:24px;padding:10px 28px}
+.listoya button{margin-top:16px;border:0;background:#fff;color:#000;border-radius:12px;padding:16px 36px;font-size:17px;font-weight:700;cursor:pointer}
 .mipedido{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:14px 16px;border:0;background:#E7F5EC;color:#0B6B37;font:inherit;font-size:15px;cursor:pointer;text-align:left}
 @media (hover:hover) and (pointer:fine){.tabs{flex-wrap:wrap;row-gap:0}.dest{scrollbar-width:thin;scrollbar-color:#BDBDBD transparent;padding-bottom:10px}}
 section.cat{padding:22px 16px 0;scroll-margin-top:52px}
@@ -470,11 +474,40 @@ async function revisarPedidoGuardado() {
   const terminado = r.estado === 'entregado' || r.estado === 'cancelado';
   if (q) return verPedidoEnviado(info, r.estado);
   if (terminado || (info.fecha && info.fecha !== hoyMadrid())) { try { localStorage.removeItem('ultimo-pedido-' + slug); } catch (x) {} return; }
+  $('mipedido')?.remove();
   const b = document.createElement('button');
   b.id = 'mipedido'; b.className = 'mipedido';
-  b.innerHTML = `<span>Tu pedido <strong>${esc(r.codigo)}</strong> · ${esc(ESTADOS_CORTO[r.estado] || r.estado)}</span><span style="text-decoration:underline">Ver</span>`;
-  b.onclick = () => verPedidoEnviado(info, r.estado);
+  const pintar = est => { b.innerHTML = `<span>Tu pedido <strong>${esc(r.codigo)}</strong> · ${esc(ESTADOS_CORTO[est] || est)}</span><span style="text-decoration:underline">Ver</span>`; b.onclick = () => verPedidoEnviado(info, est); };
+  pintar(r.estado);
   document.querySelector('.wrap')?.prepend(b);
+  if (r.estado === 'listo') alertaListo(info);
+  // Sigue mirando el estado mientras la carta esté abierta
+  clearInterval(revisarPedidoGuardado.t);
+  revisarPedidoGuardado.t = setInterval(async () => {
+    const { data } = await sb.rpc('estado_pedido', { p_id: info.id });
+    const est = data && data[0] && data[0].estado; if (!est) return;
+    if (est === 'entregado' || est === 'cancelado') { clearInterval(revisarPedidoGuardado.t); b.remove(); try { localStorage.removeItem('ultimo-pedido-' + slug); } catch (x) {} return; }
+    pintar(est); if (est === 'listo') alertaListo(info);
+  }, 10000);
+}
+/* ---------- Aviso de "pedido listo": pantalla verde, sonido y vibración hasta que el cliente lo vea ---------- */
+let AUDIO = null;
+function desbloquearAudio() { try { AUDIO = AUDIO || new (window.AudioContext || window.webkitAudioContext)(); if (AUDIO.state === 'suspended') AUDIO.resume(); } catch (x) {} }
+document.addEventListener('pointerdown', desbloquearAudio, { passive: true });
+function timbre() {
+  try { if (AUDIO) [0, .18, .36, .9, 1.08, 1.26].forEach(t => { const o = AUDIO.createOscillator(), g = AUDIO.createGain(); o.type = 'sine'; o.frequency.value = t < .8 ? 988 : 1319; g.gain.setValueAtTime(.35, AUDIO.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, AUDIO.currentTime + t + .16); o.connect(g); g.connect(AUDIO.destination); o.start(AUDIO.currentTime + t); o.stop(AUDIO.currentTime + t + .17); }); } catch (x) {}
+  try { navigator.vibrate && navigator.vibrate([400, 150, 400, 150, 400]); } catch (x) {}
+}
+function alertaListo(info) {
+  const k = 'listo-visto-' + info.id;
+  try { if (localStorage.getItem(k)) return; } catch (x) {}
+  if ($('listoYa')) return;
+  const d = document.createElement('div'); d.id = 'listoYa'; d.className = 'listoya'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-label', 'Tu pedido está listo');
+  d.innerHTML = `<div style="font-size:60px">🔔</div><p class="t">¡Tu pedido está listo!</p><p class="n">${esc(info.codigo || '')}</p><p>Pasa a recogerlo en<br><strong>${esc(N.nombre)}</strong></p><button id="listoOk">Vale, voy</button>`;
+  document.body.appendChild(d);
+  const titulo = document.title; let par = false;
+  timbre(); const t = setInterval(() => { timbre(); par = !par; document.title = par ? '🔔 ¡Pedido listo!' : titulo; }, 3000);
+  $('listoOk').onclick = () => { clearInterval(t); document.title = titulo; try { navigator.vibrate && navigator.vibrate(0); localStorage.setItem(k, '1'); } catch (x) {} d.remove(); };
 }
 const ESTADOS_CORTO = { nuevo: 'Recibido', preparando: 'Preparando', listo: '¡Listo para recoger!' };
 const ESTADOS_CLIENTE = { nuevo: 'Recibido. En cola para preparar.', preparando: 'Preparando tu pedido…', listo: '¡Listo! Ya puedes recogerlo.', entregado: 'Entregado. ¡Que aproveche!', cancelado: 'Pedido cancelado. Contacta con el local.' };
@@ -485,14 +518,14 @@ function verPedidoEnviado(info, estadoIni) {
     <p style="font-size:15px;margin:24px 0 6px">Tu número de pedido</p>
     <p style="font-size:64px;font-weight:700;margin:0;line-height:1">${esc(codigo)}</p>
     <p id="estadoPed" style="font-size:18px;font-weight:600;margin:22px 0 8px">${ESTADOS_CLIENTE[estadoIni || 'nuevo']}</p>
-    <p class="muted" style="margin:0 0 20px">Te avisaremos por WhatsApp cuando esté listo. Si estás en el local, también diremos tu número.</p>
+    <p class="muted" style="margin:0 0 20px">Cuando esté listo te avisaremos por WhatsApp y <strong>esta página sonará</strong>. Si puedes, déjala abierta. Si estás en el local, también diremos tu número.</p>
     <p style="margin:0 auto 24px;max-width:420px;padding:12px 14px;border-radius:12px;background:#E7F5EC;color:#0B6B37;font-size:14px;line-height:1.45">Tu número queda registrado en esta página. Si cierras y vuelves a abrir la carta en este móvil, lo verás arriba en verde.</p>
     ${N.modo_prueba ? '<p class="muted" style="font-size:13px;margin:0 0 16px">Pedido de prueba: no se ha cobrado nada.</p>' : ''}
     <button class="btn" id="fin" style="max-width:420px;margin:0 auto">Volver a la carta</button>
   </div>`;
   $('fin').onclick = () => { clearInterval(el._t); el.classList.remove('open'); lock(); if (/[?&]pedido=/.test(location.search)) history.replaceState(null, '', location.pathname); render(); bar(); revisarPedidoGuardado(); };
   clearInterval(el._t);
-  const mirar = async () => { const { data } = await sb.rpc('estado_pedido', { p_id: id }); const est = data && data[0] && data[0].estado; if (est && $('estadoPed')) $('estadoPed').textContent = ESTADOS_CLIENTE[est] || est; if (!$('estadoPed') || est === 'entregado' || est === 'cancelado') clearInterval(el._t); };
+  const mirar = async () => { const { data } = await sb.rpc('estado_pedido', { p_id: id }); const est = data && data[0] && data[0].estado; if (est && $('estadoPed')) $('estadoPed').textContent = ESTADOS_CLIENTE[est] || est; if (est === 'listo') alertaListo(info); if (!$('estadoPed') || est === 'entregado' || est === 'cancelado') clearInterval(el._t); };
   el._t = setInterval(mirar, 10000);
   el.classList.add('open'); el.scrollTop = 0; lock();
 }
