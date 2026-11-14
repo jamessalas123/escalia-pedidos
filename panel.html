@@ -364,7 +364,7 @@ function cabecera() {
 }
 function conectarCabecera() {
   $('salir').onclick = () => sb.auth.signOut();
-  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; vistaPanel(); window.scrollTo(0, 0); });
+  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
   const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
@@ -444,7 +444,9 @@ function escucharPedidos() {
       await cargarPedidos();
       if (ev.eventType === 'INSERT' && ev.new.origen !== 'mostrador') { pitido(); aviso('Nuevo pedido ' + (ev.new.codigo || '')); }
       if (vista === 'mostrador') return;
-      if (vista === 'pedidos' || ev.eventType === 'INSERT') vistaPanel();
+      // Pedido nuevo: se muestra al momento, en la columna "Nuevos", estés donde estés
+      if (ev.eventType === 'INSERT') { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
+      if (vista === 'pedidos') vistaPanel();
     }).subscribe();
   // Por si se pierde la conexión: refresco cada minuto
   clearInterval(escucharPedidos.t);
@@ -662,7 +664,7 @@ function vistaMostradorHecho() {
   </div>`;
   $('imp').onclick = () => imprimir(p);
   $('otro').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: MOST.cat, hecho: null }; vistaPanel(); };
-  $('ir').onclick = () => { vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
+  $('ir').onclick = () => { vista = 'pedidos'; colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); };
 }
 // Ticket de 80 mm con el número grande (para la bolsa o el cliente)
 function imprimir(p) {
