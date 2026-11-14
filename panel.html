@@ -83,6 +83,15 @@ main.ancho{max-width:1280px}
 .colt span{float:right}
 .colt.nuevo{color:#8E1B12}.colt.preparando{color:#6B5300}.colt.listo{color:#0B6B37}
 .vacio{text-align:center;padding:24px 8px}
+.modo-chip{border:1px solid var(--borde);background:#fff;border-radius:99px;padding:6px 12px;font:inherit;font-size:13px;white-space:nowrap;flex:none;cursor:pointer;margin-left:auto;margin-right:12px}
+.modos{display:flex;flex-direction:column;gap:12px;max-width:520px;margin:24px auto;padding:0 16px}
+.modo{border:2px solid var(--linea);border-radius:16px;background:#fff;padding:18px;text-align:left;font:inherit;cursor:pointer}
+.modo b{display:block;font-size:20px;margin-bottom:4px}.modo span{color:var(--gris);font-size:15px;line-height:1.4}
+.modo:hover,.modo:focus-visible{border-color:#000}
+.enprep{text-align:center;font-size:15px;color:var(--gris);margin:0}
+.tablero.uno .columna.on,.tablero.uno .columna{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.tablero.uno .colt,.tablero.uno .vacio{grid-column:1/-1}
+@media (min-width:900px){.tablero.dos{grid-template-columns:repeat(2,minmax(0,1fr))!important}.tablero.uno{display:block!important}}
 .hechos{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;opacity:.75}
 @media (min-width:900px){
   .colnav{display:none}
@@ -251,6 +260,7 @@ function vistaContrato(pend) {
     <button class="btn" id="aceptar">Aceptar y entrar</button>
   </main>`;
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
+  if ($('cambiarModo')) $('cambiarModo').onclick = () => { modo = null; vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-imp-doc]').forEach(b => b.onclick = () => imprimirDoc(pend[+b.dataset.impDoc].titulo, textos[+b.dataset.impDoc]));
   $('aceptar').onclick = async () => {
     if (!$('acepto').checked) { $('err').textContent = 'Marca la casilla para continuar.'; $('err').hidden = false; return; }
@@ -367,15 +377,15 @@ function opcionesUnicas() {
 }
 
 /* ---------- Panel ---------- */
-function vistaPanel() { if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') vistaPedidos(); else vistaCarta(); }
+function vistaPanel() { if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') (modo ? vistaPedidos() : vistaElegirModo()); else vistaCarta(); }
 function cabecera() {
-  const n = PEDIDOS.filter(p => p.estado === 'nuevo').length;
-  return `<div class="barra"><b>${esc(N.nombre)}</b><button class="lnk" id="salir">Salir</button></div>
+  const n = PEDIDOS.filter(p => p.estado === (modo === 'caja' ? 'listo' : 'nuevo')).length;
+  return `<div class="barra"><b>${esc(N.nombre)}</b>${modo ? `<button class="modo-chip" id="cambiarModo" aria-label="Cambiar modo de este aparato">${NOMBRE_MODO[modo]} · <u>cambiar</u></button>` : ''}<button class="lnk" id="salir">Salir</button></div>
   <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button></nav>`;
 }
 function conectarCabecera() {
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
-  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
+  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && modo !== 'caja' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
   const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
@@ -439,11 +449,14 @@ async function cargarPedidos() {
   const { data, error } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,avisado_en,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
   if (error) return []; // sin red: se mantiene lo que ya se ve
-  const nuevos = VISTOS ? (data || []).filter(p => !VISTOS.has(p.id) && p.origen !== 'mostrador' && p.estado === 'nuevo') : [];
+  const nuevos = VISTOS ? (data || []).filter(p => !VISTOS.has(p.id) && p.estado === 'nuevo' && (p.origen !== 'mostrador' || modo === 'cocina')) : [];
+  nuevos.listos = ESTADOS_ANT ? (data || []).filter(p => p.estado === 'listo' && ESTADOS_ANT.get(p.id) !== 'listo') : [];
   VISTOS = new Set((data || []).map(p => p.id));
+  ESTADOS_ANT = new Map((data || []).map(p => [p.id, p.estado]));
   PEDIDOS = data || [];
   return nuevos;
 }
+let ESTADOS_ANT = null;
 let VISTOS = null; // ids ya conocidos, para pitar solo con los nuevos (llegue el aviso en directo o por la revisión)
 /* Sonido de pedidos nuevos: ACTIVADO siempre por defecto. Solo se apaga si el dueño pulsa "Silenciar".
    El navegador no deja sonar hasta el primer toque en la pantalla: cualquier toque lo desbloquea. */
@@ -456,6 +469,13 @@ function desbloquearAudio() {
 }
 document.addEventListener('pointerdown', desbloquearAudio, { passive: true });
 document.addEventListener('keydown', desbloquearAudio);
+// Aviso suave para la caja: un pedido pasó a Listo
+function pitidoSuave() {
+  if (silenciado) return;
+  try { const ctx = audioCtx(); if (ctx.state !== 'running') ctx.resume();
+    [0, 0.22].forEach((t, k) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = k ? 1046 : 784; g.gain.setValueAtTime(0.25, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.35); o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.36); });
+  } catch (e) {}
+}
 function pitido() {
   if (silenciado) return;
   try {
@@ -466,9 +486,15 @@ function pitido() {
 }
 // Pedidos nuevos: pitido + aviso + se muestran en "Nuevos"
 function procesarNuevos(nuevos, cambio) {
+  if (modo === 'caja') {
+    const listos = nuevos.listos || [];
+    if (listos.length) { pitidoSuave(); aviso(listos.map(p => p.codigo).join(', ') + ' listo para entregar'); }
+    if (vista === 'pedidos' && (listos.length || cambio || nuevos.length) && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel();
+    return;
+  }
   if (nuevos.length) { pitido(); aviso('Nuevo pedido ' + nuevos.map(p => p.codigo || '').join(', ')); }
   if (vista === 'mostrador') return;
-  if (nuevos.length) { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
+  if (nuevos.length && modo) { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
   if (vista === 'pedidos' && (nuevos.length || cambio) && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel();
 }
 // Conexión en directo (avisa al momento). Si falla, se reintenta como mucho cada 30 s y mientras tanto se revisa cada 15 s.
@@ -487,6 +513,7 @@ function suscribir() {
 }
 function escucharPedidos() {
   VISTOS = new Set(PEDIDOS.map(p => p.id));
+  ESTADOS_ANT = new Map(PEDIDOS.map(p => [p.id, p.estado]));
   suscribir();
   // Latido: cada 15 s revisa los pedidos (por si falla el directo); cada minuto avisa a la carta de que el local está conectado.
   let vueltas = 0;
@@ -552,6 +579,24 @@ function hace(iso) { const m = Math.max(0, Math.floor((Date.now() - new Date(iso
 const minutos = iso => (Date.now() - new Date(iso)) / 60000;
 const AVISO_MIN = 15; // a partir de aquí el tiempo se pone en rojo
 let colMovil = 'nuevo', buscado = '';
+// Modo de este aparato: 'cocina' (Nuevos y Preparando), 'caja' (Listos → Entregado) o 'todo'. Se guarda en el aparato.
+let modo = null;
+try { modo = ['cocina', 'caja', 'todo'].includes(localStorage.getItem('panel-modo')) ? localStorage.getItem('panel-modo') : null; } catch (e) {}
+const NOMBRE_MODO = { cocina: 'Cocina', caja: 'Caja', todo: 'Todo en uno' };
+const colsModo = () => modo === 'cocina' ? COLUMNAS.slice(0, 2) : modo === 'caja' ? [['listo', 'Listos para entregar']] : COLUMNAS;
+function vistaElegirModo() {
+  app.innerHTML = `${cabecera()}
+  <div class="modos"><h2 style="margin:0">¿Qué es este aparato?</h2><p class="sub" style="margin:0">Se elige una vez. Puedes cambiarlo cuando quieras arriba.</p>
+    <button class="modo" data-modo="cocina"><b>🍳 Cocina</b><span>Ve los pedidos nuevos y en preparación. Pita con cada pedido. Botones Empezar y Listo · avisar por WhatsApp.</span></button>
+    <button class="modo" data-modo="caja"><b>💶 Caja</b><span>Ve los pedidos listos para entregar y pulsa Entregado. Pedidos de mostrador y buscador por número.</span></button>
+    <button class="modo" data-modo="todo"><b>📋 Todo en uno</b><span>Una sola persona lo hace todo: Nuevos, Preparando y Listos en la misma pantalla.</span></button>
+  </div>`;
+  conectarCabecera();
+  app.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => {
+    modo = b.dataset.modo; try { localStorage.setItem('panel-modo', modo); } catch (e) {}
+    colMovil = colsModo()[0][0]; desbloquearAudio?.(); vistaPanel(); window.scrollTo(0, 0);
+  });
+}
 let menuAbierto = null;
 const telDe = p => { const t = (p.cliente_telefono || '').replace(/[^\d]/g, ''); return t.length === 9 ? '34' + t : t; };
 const waTexto = p => `Hola ${p.cliente_nombre || ''} 👋 Tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`;
@@ -606,25 +651,29 @@ function vistaPedidos() {
   const por = e => PEDIDOS.filter(p => p.estado === e);
   const hechos = PEDIDOS.filter(p => ['entregado', 'cancelado'].includes(p.estado)).reverse();
   const entregados = PEDIDOS.filter(p => p.estado === 'entregado');
+  const COLS = colsModo();
+  if (!COLS.some(c => c[0] === colMovil)) colMovil = COLS[0][0];
+  const enPrep = PEDIDOS.filter(p => ['nuevo', 'preparando'].includes(p.estado));
   app.innerHTML = `${cabecera()}
   <main class="ancho">
     <div class="sonido-fila">${silenciado ? '<span class="son off">🔕 Sonido silenciado</span><button class="lnk" id="sonido">Activar sonido</button>' : `<span class="son on">🔔 Sonido de pedidos activado</span><button class="lnk" id="sonido">Silenciar</button>`}</div>
     ${!silenciado && !audioListo() ? '<p class="toque" id="avisoToque">Toca la pantalla una vez para que el sonido pueda funcionar.</p>' : ''}
     ${contarAgotados() ? `<button class="avisoag" id="verAg">⚠ Tienes ${contarAgotados()} agotado${contarAgotados() > 1 ? 's' : ''} — <u>Ver y activar</u></button>` : ''}
     ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
-    <div class="acciones"><button class="btn" id="nuevoMost">+ Pedido en mostrador</button>
+    <div class="acciones">${modo === 'cocina' ? '' : '<button class="btn" id="nuevoMost">+ Pedido en mostrador</button>'}
     <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form></div>
-    <nav class="colnav" aria-label="Estados">${COLUMNAS.map(([e, t]) => `<button data-col="${e}" class="${colMovil === e ? 'on' : ''}">${t} <span>${por(e).length}</span></button>`).join('')}</nav>
-    <div class="tablero">${COLUMNAS.map(([e, t]) => `<section class="columna ${e} ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}">${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
-    <button class="btn claro" id="hechos" style="max-width:520px;align-self:center">${verHechos ? 'Ocultar' : 'Ver'} entregados y cancelados de hoy (${hechos.length})</button>
+    ${COLS.length > 1 ? `<nav class="colnav" aria-label="Estados">${COLS.map(([e, t]) => `<button data-col="${e}" class="${colMovil === e ? 'on' : ''}">${t} <span>${por(e).length}</span></button>`).join('')}</nav>` : ''}
+    <div class="tablero ${['', 'uno', 'dos'][COLS.length] || ''}">${COLS.map(([e, t]) => `<section class="columna ${e} ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}" ${COLS.length === 1 ? 'style="display:block"' : ''}>${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : e === 'listo' && modo === 'caja' ? 'Nada para entregar. Cuando cocina marque un pedido como listo, aparecerá aquí y sonará un aviso.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
+    ${modo === 'caja' ? `<p class="enprep">En preparación: ${enPrep.length ? enPrep.map(p => `<b>${esc(p.codigo)}</b>`).join(', ') : 'ninguno'}</p>` : ''}
+    ${modo === 'cocina' ? '' : `<button class="btn claro" id="hechos" style="max-width:520px;align-self:center">${verHechos ? 'Ocultar' : 'Ver'} entregados y cancelados de hoy (${hechos.length})</button>
     ${verHechos ? `<div class="hechos">${hechos.map(tarjetaPedido).join('')}</div>` : ''}
-    <p class="sub" style="text-align:center">Entregado hoy: <strong>${eur(entregados.reduce((a, p) => a + Number(p.total), 0))}</strong> en ${entregados.length} pedidos</p>
+    <p class="sub" style="text-align:center">Entregado hoy: <strong>${eur(entregados.reduce((a, p) => a + Number(p.total), 0))}</strong> en ${entregados.length} pedidos</p>`}
   </main>`;
   conectarCabecera();
   $('sonido').onclick = () => { silenciado = !silenciado; try { localStorage.setItem('panel-silenciado', silenciado ? '1' : '0'); } catch (e) {} if (!silenciado) pitido(); vistaPanel(); };
   if ($('verAg')) $('verAg').onclick = () => { vista = 'carta'; pestana = 'agot'; vistaPanel(); window.scrollTo(0, 0); };
-  $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
-  $('nuevoMost').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null }; vista = 'mostrador'; vistaPanel(); window.scrollTo(0, 0); };
+  if ($('hechos')) $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
+  if ($('nuevoMost')) $('nuevoMost').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null }; vista = 'mostrador'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => imprimir(PEDIDOS.find(x => x.id === b.dataset.imp)));
   app.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { colMovil = b.dataset.col; vistaPanel(); });
   $('fbus').onsubmit = e => {
@@ -633,8 +682,9 @@ function vistaPedidos() {
     buscado = v ? 'p' + v : '';
     const p = PEDIDOS.find(x => x.codigo.toLowerCase() === buscado);
     if (buscado && !p) { buscado = ''; return aviso('No hay ningún pedido P' + v + ' hoy'); }
-    if (p && COLUMNAS.some(c => c[0] === p.estado)) colMovil = p.estado;
-    if (p && !COLUMNAS.some(c => c[0] === p.estado)) verHechos = true;
+    if (p && colsModo().some(c => c[0] === p.estado)) colMovil = p.estado;
+    else if (p && ['entregado', 'cancelado'].includes(p.estado) && modo !== 'cocina') verHechos = true;
+    else if (p) { buscado = ''; return aviso(`${p.codigo}: ${({ nuevo: 'nuevo, aún sin empezar', preparando: 'en preparación', listo: 'listo para entregar', entregado: 'ya entregado', cancelado: 'cancelado' })[p.estado] || p.estado}`); }
     vistaPanel();
     if (p) setTimeout(() => $('ped-' + p.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   };
