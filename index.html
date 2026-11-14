@@ -260,7 +260,7 @@ function abrirFicha(pid, editIdx, reempIdx) {
         <legend style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 0 6px">
           <span><span style="font-size:18px;font-weight:700;display:block">${esc(g.nombre)}</span><span class="muted">${g.maximo > 1 ? (g.obligatorio ? 'Elige hasta ' + g.maximo : 'Opcional · elige las que quieras') : (g.obligatorio ? 'Elige 1' : 'Opcional')}</span></span>
           ${g.obligatorio ? `<span class="pill" id="pg${g.id}">Obligatorio</span>` : ''}</legend>
-        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"${editando && (editando.ops || []).some(x => x.grupo === g.nombre && x.nombre === o.nombre) ? ' checked' : ''}></label>`).join('')}
+        ${OPCS.filter(o => o.grupo_id === g.id).map(o => `<label class="opt"><span>${esc(o.nombre)}${difPrecio(o.precio_extra)}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g${g.id}" value="${o.id}" data-max="${g.maximo}"${/completa/i.test(o.nombre) ? ' data-excl="1"' : ''}${editando && (editando.ops || []).some(x => x.grupo === g.nombre && x.nombre === o.nombre) ? ' checked' : ''}></label>`).join('')}
       </fieldset>`).join('')}
       ${esBebida(p) ? '' : `<div class="sep"></div>
       <label class="field" style="font-size:18px">Instrucciones especiales<input id="fn" maxlength="120" placeholder="Ej.: sin cebolla, salsa aparte" value="${esc(editando ? editando.nota || '' : '')}"></label>`}
@@ -276,6 +276,8 @@ function abrirFicha(pid, editIdx, reempIdx) {
   $('fal').onclick = abrirAlergenos;
   el.querySelectorAll('input[name^="g"]').forEach(r => r.onchange = () => {
     const pg = $('pg' + r.name.slice(1)); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; }
+    // "Ensalada completa" excluye los ingredientes sueltos, y al revés
+    if (r.type === 'checkbox' && r.checked) el.querySelectorAll(`input[name="${r.name}"]:checked`).forEach(x => { if (x !== r && (!!x.dataset.excl !== !!r.dataset.excl)) x.checked = false; });
     if (r.type === 'checkbox' && r.checked) { const marcadas = el.querySelectorAll(`input[name="${r.name}"]:checked`); if (marcadas.length > Number(r.dataset.max)) r.checked = false; }
     upd();
   });
