@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <script>if(/\.vercel\.app$/.test(location.hostname))location.replace('https://pide.escaliadigital.com'+location.pathname+location.search+location.hash)</script>
 
+<meta name="color-scheme" content="only light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Carta</title>
 <link href="/fonts/inter.css" rel="stylesheet">
 <style>
 :root{--g:#545454;--b:#E8E8E8;--s:#F3F3F3;--v:#0B7A3E;--r:#B42318}
+:root{color-scheme:only light}
+@media (prefers-color-scheme:dark){html{background:#fff;color:#000;color-scheme:only light}}
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,sans-serif;color:#000;background:#fff;-webkit-font-smoothing:antialiased}
 button,input{font:inherit;color:inherit}

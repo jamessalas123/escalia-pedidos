@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <script>if(/\.vercel\.app$/.test(location.hostname))location.replace('https://pide.escaliadigital.com'+location.pathname+location.search+location.hash)</script>
 
+<meta name="color-scheme" content="only light">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Escalia Digital · Panel</title>
 <link href="/fonts/inter.css" rel="stylesheet">
 <style>
 :root{--negro:#000;--gris:#545454;--linea:#E8E8E8;--suave:#F3F3F3;--borde:#CBCBCB;--verde:#0B7A3E;--rojo:#B42318}
+:root{color-scheme:only light}
+@media (prefers-color-scheme:dark){html{background:#fff;color:#000;color-scheme:only light}}
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:#000;font-family:Inter,system-ui,sans-serif;font-size:15px}
 a{color:#000}
