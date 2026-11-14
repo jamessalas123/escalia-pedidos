@@ -260,7 +260,6 @@ function vistaContrato(pend) {
     <button class="btn" id="aceptar">Aceptar y entrar</button>
   </main>`;
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
-  if ($('cambiarModo')) $('cambiarModo').onclick = () => { modo = null; vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-imp-doc]').forEach(b => b.onclick = () => imprimirDoc(pend[+b.dataset.impDoc].titulo, textos[+b.dataset.impDoc]));
   $('aceptar').onclick = async () => {
     if (!$('acepto').checked) { $('err').textContent = 'Marca la casilla para continuar.'; $('err').hidden = false; return; }
@@ -385,6 +384,7 @@ function cabecera() {
 }
 function conectarCabecera() {
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
+  if ($('cambiarModo')) $('cambiarModo').onclick = () => { modo = null; vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && modo !== 'caja' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
