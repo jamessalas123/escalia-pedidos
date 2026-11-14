@@ -381,12 +381,11 @@ function opcionesUnicas() {
 function vistaPanel() { if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') (modo ? vistaPedidos() : vistaElegirModo()); else vistaCarta(); }
 function cabecera() {
   const n = PEDIDOS.filter(p => p.estado === (modo === 'caja' ? 'listo' : 'nuevo')).length;
-  return `<div class="barra"><b>${esc(N.nombre)}</b>${modo ? `<button class="modo-chip" id="cambiarModo" aria-label="Cambiar modo de este aparato">${NOMBRE_MODO[modo]} · <u>cambiar</u></button>` : ''}<button class="lnk" id="salir">Salir</button></div>
+  return `<div class="barra"><b>${esc(N.nombre)}</b>${modo !== 'todo' ? `<button class="modo-chip" id="cambiarModo" aria-label="Cambiar modo de este aparato">${NOMBRE_MODO[modo]} · <u>cambiar</u></button>` : ''}<button class="lnk" id="salir">Salir</button></div>
   <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button></nav>`;
 }
 function conectarCabecera() {
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
-  if ($('cambiarModo')) $('cambiarModo').onclick = () => { modo = null; vista = 'pedidos'; vistaPanel(); window.scrollTo(0, 0); };
   app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && modo !== 'caja' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
@@ -451,14 +450,14 @@ async function cargarPedidos() {
   const { data, error } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,avisado_en,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
   if (error) return []; // sin red: se mantiene lo que ya se ve
-  const nuevos = VISTOS ? (data || []).filter(p => !VISTOS.has(p.id) && p.estado === 'nuevo' && (p.origen !== 'mostrador' || modo === 'cocina')) : [];
+  const nuevos = VISTOS ? (data || []).filter(p => !VISTOS.has(p.id) && p.estado === 'nuevo' && (p.origen !== 'mostrador' || !creandoMostrador)) : [];
   nuevos.listos = ESTADOS_ANT ? (data || []).filter(p => p.estado === 'listo' && ESTADOS_ANT.get(p.id) !== 'listo') : [];
   VISTOS = new Set((data || []).map(p => p.id));
   ESTADOS_ANT = new Map((data || []).map(p => [p.id, p.estado]));
   PEDIDOS = data || [];
   return nuevos;
 }
-let ESTADOS_ANT = null;
+let ESTADOS_ANT = null, creandoMostrador = false; // mientras este aparato crea un pedido de mostrador, no se pita por él
 let VISTOS = null; // ids ya conocidos, para pitar solo con los nuevos (llegue el aviso en directo o por la revisión)
 /* Sonido de pedidos nuevos: ACTIVADO siempre por defecto. Solo se apaga si el dueño pulsa "Silenciar".
    El navegador no deja sonar hasta el primer toque en la pantalla: cualquier toque lo desbloquea. */
@@ -582,8 +581,9 @@ const minutos = iso => (Date.now() - new Date(iso)) / 60000;
 const AVISO_MIN = 15; // a partir de aquí el tiempo se pone en rojo
 let colMovil = 'nuevo', buscado = '';
 // Modo de este aparato: 'cocina' (Nuevos y Preparando), 'caja' (Listos → Entregado) o 'todo'. Se guarda en el aparato.
-let modo = null;
-try { modo = ['cocina', 'caja', 'todo'].includes(localStorage.getItem('panel-modo')) ? localStorage.getItem('panel-modo') : null; } catch (e) {}
+// Siempre "todo en uno" en todos los aparatos (tablet y caja ven lo mismo y se sincronizan). Los modos Cocina/Caja quedan desactivados.
+const modo = 'todo';
+try { localStorage.removeItem('panel-modo'); } catch (e) {}
 const NOMBRE_MODO = { cocina: 'Cocina', caja: 'Caja', todo: 'Todo en uno' };
 const colsModo = () => modo === 'cocina' ? COLUMNAS.slice(0, 2) : modo === 'caja' ? [['listo', 'Listos para entregar']] : COLUMNAS;
 function vistaElegirModo() {
@@ -595,7 +595,7 @@ function vistaElegirModo() {
   </div>`;
   conectarCabecera();
   app.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => {
-    modo = b.dataset.modo; try { localStorage.setItem('panel-modo', modo); } catch (e) {}
+    try { localStorage.setItem('panel-modo', b.dataset.modo); } catch (e) {}
     colMovil = colsModo()[0][0]; desbloquearAudio?.(); vistaPanel(); window.scrollTo(0, 0);
   });
 }
@@ -807,10 +807,13 @@ function elegirProducto(p) {
 async function crearMostrador() {
   if (!MOST.metodo) return aviso('Elige cómo paga: efectivo o tarjeta');
   const b = $('crearMost'); b.disabled = true; b.textContent = 'Creando…';
+  creandoMostrador = true;
   const { data, error } = await sb.rpc('crear_pedido_mostrador', {
     p_negocio: N.id, p_nombre: MOST.nombre.trim(), p_metodo: MOST.metodo, p_notas: null,
     p_lineas: MOST.lineas.map(l => ({ pid: l.pid, qty: l.qty, ops: l.ops.map(o => ({ grupo: o.grupo, nombre: o.nombre })) }))
   });
+  if (data?.[0] && VISTOS) VISTOS.add(data[0].id);
+  setTimeout(() => { creandoMostrador = false; }, 3000);
   if (error || !data?.[0]) { b.disabled = false; b.textContent = 'Crear pedido'; return aviso(/disponible/.test(error?.message || '') ? error.message : 'No se pudo crear. Revisa la conexión.'); }
   await cargarPedidos();
   MOST.hecho = PEDIDOS.find(x => x.id === data[0].id) || { ...data[0], cliente_nombre: MOST.nombre, origen: 'mostrador', metodo_pago: MOST.metodo, creado_en: new Date().toISOString(), lineas_pedido: [] };
