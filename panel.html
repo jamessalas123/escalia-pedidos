@@ -473,7 +473,19 @@ const AVISO_MIN = 15; // a partir de aquí el tiempo se pone en rojo
 let colMovil = 'nuevo', buscado = '';
 let menuAbierto = null;
 const telDe = p => { const t = (p.cliente_telefono || '').replace(/[^\d]/g, ''); return t.length === 9 ? '34' + t : t; };
-const waDe = p => `https://wa.me/${telDe(p)}?text=${encodeURIComponent(`Hola ${p.cliente_nombre || ''} 👋 Tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`)}`;
+const waTexto = p => `Hola ${p.cliente_nombre || ''} 👋 Tu pedido ${p.codigo} de ${N.nombre} está listo para recoger. ¡Te esperamos!`;
+const waDe = p => `https://wa.me/${telDe(p)}?text=${encodeURIComponent(waTexto(p))}`;
+// En móvil/caja se abre la app de WhatsApp directamente (sin pestaña nueva): al volver con "atrás", el panel sigue ahí.
+// En ordenador se abre WhatsApp Web en otra pestaña.
+function abrirWhatsApp(p) {
+  const movil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!movil) { window.open(waDe(p), '_blank', 'noopener'); return; }
+  let salio = false; const vis = () => { if (document.hidden) salio = true; };
+  document.addEventListener('visibilitychange', vis);
+  location.href = `whatsapp://send?phone=${telDe(p)}&text=${encodeURIComponent(waTexto(p))}`;
+  // Si en este aparato no hay WhatsApp instalado, se abre la versión web en la misma ventana (volver con "atrás")
+  setTimeout(() => { document.removeEventListener('visibilitychange', vis); if (!salio && !document.hidden) location.href = waDe(p); }, 1800);
+}
 function tarjetaPedido(p) {
   const tel = telDe(p);
   const lineas = (p.lineas_pedido || []).map(l => {
@@ -548,11 +560,13 @@ function vistaPedidos() {
   app.querySelectorAll('[data-mn]').forEach(d => d.ontoggle = () => { if (d.open) { menuAbierto = d.dataset.mn; app.querySelectorAll('[data-mn]').forEach(o => { if (o !== d) o.open = false; }); } else if (menuAbierto === d.dataset.mn) menuAbierto = null; });
   // "Listo · avisar": abre WhatsApp con el mensaje (en el mismo toque, para que el navegador no lo bloquee) y marca el pedido como listo
   const avisar = async (p, cambiarEstado) => {
-    window.open(waDe(p), '_blank', 'noopener');
+    // Primero se guarda (así el pedido queda en "Listos" aunque se cambie de app) y luego se abre WhatsApp
     const cambios = { avisado_en: new Date().toISOString() }; if (cambiarEstado) cambios.estado = 'listo';
     const { error } = await sb.from('pedidos').update(cambios).eq('id', p.id);
-    if (error) return aviso('No se pudo guardar. Revisa la conexión.');
-    Object.assign(p, cambios); menuAbierto = null; aviso(p.codigo + (cambiarEstado ? ' → Listo. Pulsa enviar en WhatsApp' : ': WhatsApp abierto')); vistaPanel();
+    if (error) { vistaPanel(); return aviso('No se pudo guardar. Revisa la conexión.'); }
+    Object.assign(p, cambios); menuAbierto = null; vistaPanel();
+    aviso(p.codigo + ' → Listo. Pulsa enviar en WhatsApp y vuelve con ◀');
+    abrirWhatsApp(p);
   };
   app.querySelectorAll('[data-listo]').forEach(b => b.onclick = () => { b.disabled = true; avisar(PEDIDOS.find(x => x.id === b.dataset.listo), true); });
   app.querySelectorAll('[data-wa]').forEach(b => b.onclick = () => avisar(PEDIDOS.find(x => x.id === b.dataset.wa), false));
