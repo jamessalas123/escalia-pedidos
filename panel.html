@@ -7,6 +7,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Panel del negocio</title>
+<link rel="manifest" href="/panel.webmanifest">
+<meta name="theme-color" content="#B42318">
+<link rel="apple-touch-icon" href="/img/app-panel-192.png">
+<link rel="icon" href="/img/app-panel-192.png">
 <link href="/fonts/inter.css" rel="stylesheet">
 <style>
 :root{--gris:#545454;--linea:#E8E8E8;--suave:#F3F3F3;--borde:#CBCBCB;--verde:#0B7A3E;--rojo:#B42318}
@@ -255,6 +259,7 @@ async function verMisDocumentos() {
   const html = ult.map(a => a.texto + `<p class="pie">Aceptado por ${esc(a.email || '')} el ${new Date(a.aceptado_en).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })} (versión ${esc(a.version)}).</p>`).join('<hr style="margin:40px 0">');
   imprimirDoc('Contrato y anexo — ' + N.nombre, html);
 }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw-panel.js', { scope: '/panel' }).catch(() => {});
 (async () => {
   sb.auth.onAuthStateChange((ev, s) => {
     if ((s?.user?.id || null) !== (usuario?.id || null)) fijarSesion(s);
