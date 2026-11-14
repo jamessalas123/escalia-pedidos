@@ -166,7 +166,7 @@ const lock = () => {
 };
 
 async function load() {
-  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados,modo_prueba,panel_visto_en').eq('slug', slug).eq('activo', true).maybeSingle();
+  const { data: n, error } = await sb.from('negocios').select('id,nombre,slug,direccion,whatsapp,telefono,email_contacto,titular_nombre,titular_nif,horario,pedidos_pausados,modo_prueba,panel_visto_en,panel_estado').eq('slug', slug).eq('activo', true).maybeSingle();
   if (error) { $('app').innerHTML = '<p class="state">La carta no está disponible en este momento.<br>Si quieres pedir, llama al local.<br><br><button class="btn" style="max-width:260px;margin:0 auto" onclick="location.reload()">Reintentar</button></p>'; return; }
   if (!n) { $('app').innerHTML = slug ? '<p class="state">Esta carta no está disponible.</p>' : '<p class="state">Para ver la carta, escanea el código QR del local o abre el enlace que te ha dado el establecimiento.</p>'; return; }
   N = n; document.title = n.nombre + ' · Carta';
@@ -186,7 +186,7 @@ async function load() {
   revisarPedidoGuardado();
   clearInterval(load.t);
   load.t = setInterval(async () => {
-    const { data } = await sb.from('negocios').select('pedidos_pausados,panel_visto_en').eq('id', N.id).maybeSingle();
+    const { data } = await sb.from('negocios').select('pedidos_pausados,panel_visto_en,panel_estado').eq('id', N.id).maybeSingle();
     if (!data) return;
     const antes = JSON.stringify(estadoPedidos()); Object.assign(N, data);
     if (JSON.stringify(estadoPedidos()) !== antes && !abiertas()) render();
@@ -374,8 +374,9 @@ const precioLinea = l => (Number(PRODS.find(p => p.id === l.pid).precio) + (l.op
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 const aMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-// El panel del local da señal cada minuto; si lleva más de 5 min sin señal, no se aceptan pedidos online
-const localConectado = () => !!N.panel_visto_en && Date.now() - new Date(N.panel_visto_en) < 5 * 60000;
+// El panel del local da señal cada minuto. Solo si estaba abierto y lleva 5 min sin señal SIN haberse cerrado a propósito
+// (caída de internet) se dejan de aceptar pedidos online. Panel cerrado o en segundo plano = no bloquea.
+const localConectado = () => !(N.panel_estado === 'activo' && N.panel_visto_en && Date.now() - new Date(N.panel_visto_en) >= 5 * 60000);
 const telLocal = () => (N.telefono || N.whatsapp || '').replace(/[^\d+]/g, '');
 const telBonito = t => t.replace(/^\+?34/, '').replace(/(\d{3})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4');
 const llamar = () => telLocal() ? ` Llámanos al <a href="tel:${telLocal()}" style="color:inherit;font-weight:700">📞 ${telBonito(telLocal())}</a>.` : ' Puedes llamar al local.';
@@ -482,7 +483,7 @@ async function enviarPedido(nombre, tel, obs) {
     b.disabled = false; b.textContent = 'Pagar ' + eur(total());
     const m = error?.message || '';
     e.style.color = '';
-    if (/sin conexi/i.test(m)) { N.panel_visto_en = null; render(); e.innerHTML = 'Ahora mismo el local no puede recibir pedidos online.' + llamar(); return; }
+    if (/sin conexi/i.test(m)) { N.panel_estado = 'activo'; N.panel_visto_en = '2000-01-01T00:00:00Z'; render(); e.innerHTML = 'Ahora mismo el local no puede recibir pedidos online.' + llamar(); return; }
     e.textContent = /pausad/i.test(m) ? 'El local ha pausado los pedidos online. Inténtalo en un rato.' : /no disponible/i.test(m) ? 'Algún producto de tu pedido ya no está disponible. Revísalo.' : /Demasiados|muchos pedidos/i.test(m) ? m : 'No se pudo enviar el pedido. Inténtalo de nuevo.';
     return;
   }

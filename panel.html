@@ -244,7 +244,7 @@ function vistaContrato(pend) {
     <p class="error" id="err" hidden></p>
     <button class="btn" id="aceptar">Aceptar y entrar</button>
   </main>`;
-  $('salir').onclick = () => sb.auth.signOut();
+  $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
   app.querySelectorAll('[data-imp-doc]').forEach(b => b.onclick = () => imprimirDoc(pend[+b.dataset.impDoc].titulo, textos[+b.dataset.impDoc]));
   $('aceptar').onclick = async () => {
     if (!$('acepto').checked) { $('err').textContent = 'Marca la casilla para continuar.'; $('err').hidden = false; return; }
@@ -332,7 +332,7 @@ function vistaCodigo(email) {
 }
 function vistaSinAcceso() {
   app.innerHTML = `<div class="acceso"><h1>Cuenta sin negocio</h1><p class="sub">Esta cuenta no está vinculada a ningún negocio. Entra con el correo que diste a Escalia o avisa a James.</p><button class="btn claro" id="salir">Salir</button></div>`;
-  $('salir').onclick = () => sb.auth.signOut();
+  $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
 }
 
 /* ---------- Datos ---------- */
@@ -368,7 +368,7 @@ function cabecera() {
   <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button></nav>`;
 }
 function conectarCabecera() {
-  $('salir').onclick = () => sb.auth.signOut();
+  $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
   app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
@@ -481,14 +481,30 @@ function marcarConexion(ok) {
   let b = document.getElementById('sinConexion');
   if (sinConexion && !b) {
     b = document.createElement('div'); b.id = 'sinConexion'; b.className = 'sinconexion'; b.setAttribute('role', 'alert');
-    b.innerHTML = '<b>⚠ Sin conexión: no estás recibiendo pedidos.</b><span>La carta online se cierra sola a los 5 minutos y pide a los clientes que llamen. Revisa el internet del local.</span>';
+    b.innerHTML = '<b>⚠ Sin conexión: no estás recibiendo pedidos.</b><span>Si sigue así 5 minutos, la carta online se cierra sola y pide a los clientes que llamen. Revisa el internet del local.</span>';
     document.body.prepend(b);
   } else if (!sinConexion && b) b.remove();
   if (antes && !sinConexion) { aviso('Conexión recuperada'); if (canal && canal.state !== 'joined') escucharPedidos(); }
 }
 window.addEventListener('offline', () => marcarConexion(false));
 window.addEventListener('online', () => { if (N) escucharPedidos(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && N && typeof escucharPedidos.t !== 'undefined') sb.rpc('latido_panel', { p_negocio: N.id }).then(({ error }) => marcarConexion(!error && navigator.onLine)); });
+// Despedida: al cerrar, salir, cambiar de app o apagar la pantalla, el panel avisa de que se va a propósito.
+// Así la carta solo se cierra si el panel estaba abierto y dejó de dar señal sin despedirse (caída de internet).
+let tokenPanel = null;
+sb.auth.onAuthStateChange((_e, ses) => { tokenPanel = ses ? ses.access_token : null; });
+function despedirse() {
+  if (!N || !tokenPanel) return;
+  try {
+    fetch('https://akfnzkdavpktvqugqklo.supabase.co/rest/v1/rpc/panel_fuera', { method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: 'sb_publishable_ipLUEVx2Hwwf-PJR8EnL9A_X8vh9DD5', Authorization: 'Bearer ' + tokenPanel },
+      body: JSON.stringify({ p_negocio: N.id }) });
+  } catch (e) {}
+}
+window.addEventListener('pagehide', despedirse);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return despedirse();
+  if (N && typeof escucharPedidos.t !== 'undefined') sb.rpc('latido_panel', { p_negocio: N.id }).then(({ error }) => marcarConexion(!error && navigator.onLine));
+});
 function hora(iso) { return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }); }
 function hace(iso) { const m = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h ${m % 60} min`; }
 const minutos = iso => (Date.now() - new Date(iso)) / 60000;
