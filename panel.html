@@ -174,15 +174,17 @@ main.ancho{max-width:1280px}
 .metodo{display:flex;gap:8px}
 .metodo button{flex:1;height:50px;border-radius:10px;border:1px solid var(--borde);background:#fff;font-weight:600;cursor:pointer}
 .metodo button.on{background:#000;color:#fff;border-color:#000}
-.velo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
-@media (min-width:700px){.velo{align-items:center}}
-.hoja{background:#fff;width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px;display:flex;flex-direction:column;gap:14px}
-@media (min-width:700px){.hoja{border-radius:16px}}
+.velo{position:fixed;inset:0;background:#fff;z-index:20;display:flex;align-items:stretch;justify-content:center;overscroll-behavior:contain}
+@media (min-width:700px){.velo{align-items:center;background:rgba(0,0,0,.6)}}
+.hoja{background:#fff;width:100%;max-width:560px;height:100%;overflow:auto;overscroll-behavior:contain;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+@media (min-width:700px){.hoja{height:auto;max-height:90vh;border-radius:16px}}
+html.bloq,html.bloq body{overflow:hidden}
 .grp{display:flex;flex-direction:column;gap:6px}
 .grp h3{margin:0;font-size:16px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--borde);background:#fff;cursor:pointer;font-size:15px}
-.chips button.on{background:#000;color:#fff;border-color:#000}
+.chips button.on{background:#0B7A3E;color:#fff;border-color:#0B7A3E;font-weight:700}
+.chips button.on::before{content:'✓ '}
 .chips button:disabled{opacity:.4;text-decoration:line-through}
 .hecho{max-width:460px;margin:8vh auto 0;padding:0 20px;text-align:center;display:flex;flex-direction:column;gap:16px}
 .hecho .num{font-size:96px;font-weight:800;line-height:1}
@@ -796,11 +798,11 @@ function elegirProducto(p) {
       cerrar(); anadirLinea(p, ops);
     };
   };
-  const cerrar = () => { velo.remove(); document.removeEventListener('keydown', esc_); };
+  const cerrar = () => { velo.remove(); document.documentElement.classList.remove('bloq'); document.removeEventListener('keydown', esc_); };
   const esc_ = e => { if (e.key === 'Escape') cerrar(); };
   velo.onclick = e => { if (e.target === velo) cerrar(); };
   document.addEventListener('keydown', esc_);
-  pintar(); document.body.appendChild(velo);
+  pintar(); document.body.appendChild(velo); document.documentElement.classList.add('bloq');
 }
 async function crearMostrador() {
   if (!MOST.metodo) return aviso('Elige cómo paga: efectivo o tarjeta');
