@@ -155,7 +155,9 @@ main.ancho{max-width:1280px}
 .acciones .buscar{flex:1 1 300px;max-width:460px;align-self:auto}
 /* Pedido en mostrador */
 .mostr{max-width:1280px;margin:0 auto;padding:14px 16px 140px;display:grid;gap:16px}
-@media (min-width:900px){.mostr{grid-template-columns:minmax(0,1fr) 360px;align-items:start;padding-bottom:40px}}
+.mostr.solo{max-width:640px}
+.verped{position:fixed;left:0;right:0;bottom:0;z-index:15;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--linea)}
+.verped button{width:100%;max-width:640px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;height:56px;padding:0 18px;border:0;border-radius:12px;background:#000;color:#fff;font:inherit;font-size:17px;font-weight:700;cursor:pointer}
 .prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
 .prod{display:flex;flex-direction:column;text-align:left;border:1px solid var(--linea);border-radius:12px;background:#fff;padding:0;overflow:hidden;cursor:pointer}
 .prod .ph{aspect-ratio:4/3;background:#F3F3F3 center/cover no-repeat}
@@ -164,7 +166,7 @@ main.ancho{max-width:1280px}
 .prod:disabled{opacity:.4;cursor:not-allowed}
 .prod:active{transform:scale(.98)}
 .ticket{border:1px solid var(--linea);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;background:#fff}
-@media (min-width:900px){.ticket{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto}}
+
 .tl{display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--linea);padding-top:10px}
 .tl:first-child{border-top:0;padding-top:0}
 .tl .t{flex:1;min-width:0;font-size:15px}
@@ -173,7 +175,8 @@ main.ancho{max-width:1280px}
 .cant button{width:34px;height:34px;border-radius:50%;border:1px solid var(--borde);background:#fff;font-size:18px;cursor:pointer}
 .metodo{display:flex;gap:8px}
 .metodo button{flex:1;height:50px;border-radius:10px;border:1px solid var(--borde);background:#fff;font-weight:600;cursor:pointer}
-.metodo button.on{background:#000;color:#fff;border-color:#000}
+.metodo button.on{background:#0B7A3E;color:#fff;border-color:#0B7A3E}
+.metodo button.on::before{content:'✓ '}
 .velo{position:fixed;inset:0;background:#fff;z-index:20;display:flex;align-items:stretch;justify-content:center;overscroll-behavior:contain}
 @media (min-width:700px){.velo{align-items:center;background:rgba(0,0,0,.6)}}
 .hoja{background:#fff;width:100%;max-width:560px;height:100%;overflow:auto;overscroll-behavior:contain;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
@@ -722,7 +725,7 @@ function vistaPedidos() {
 setInterval(() => { if (N && vista === 'pedidos' && !document.querySelector('#bus:focus') && !menuAbierto) vistaPanel(); }, 30000);
 
 /* ---------- Pedido en mostrador (clientes sin móvil, cobran en caja) ---------- */
-let MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null };
+let MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null, ver: false };
 const gruposDe = pid => GRUPOS.filter(g => g.producto_id === pid).sort((a, b) => (a.orden || 0) - (b.orden || 0));
 const opcsDe = gid => OPCS.filter(o => o.grupo_id === gid).sort((a, b) => (a.orden || 0) - (b.orden || 0));
 const nombreGrupo = n => (n || '').replace(/ \(.*\)$/, '');
@@ -733,30 +736,41 @@ function pista(g) {
 const totalMost = () => MOST.lineas.reduce((a, l) => a + l.precio * l.qty, 0);
 function vistaMostrador() {
   if (MOST.hecho) return vistaMostradorHecho();
+  if (MOST.ver) return vistaMostradorPedido();
   const cats = CATS.filter(c => PRODS.some(p => p.categoria_id === c.id));
   if (!MOST.cat || !cats.some(c => c.id === MOST.cat)) MOST.cat = cats[0]?.id;
   const ps = PRODS.filter(p => p.categoria_id === MOST.cat);
-  const tot = totalMost();
+  const tot = totalMost(), n = MOST.lineas.reduce((a, l) => a + l.qty, 0);
   app.innerHTML = `<div class="barra"><button class="lnk" id="volver" style="text-decoration:none;color:#000;font-weight:600">← Volver</button><b>Pedido en mostrador</b><span style="width:60px"></span></div>
   <div class="mostr">
     <section aria-label="Carta">
       <nav class="tabs" aria-label="Secciones">${cats.map(c => `<button data-cat="${c.id}" class="${c.id === MOST.cat ? 'on' : ''}">${esc(c.nombre)}</button>`).join('')}</nav>
       <div class="prods">${ps.map(p => `<button class="prod" data-prod="${p.id}" ${p.disponible ? '' : 'disabled'}><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><span class="t"><b>${esc(p.nombre)}</b><span>${p.disponible ? eur(p.precio) : 'Agotado'}</span></span></button>`).join('')}</div>
     </section>
-    <aside class="ticket" aria-label="Pedido">
-      <h2>Pedido</h2>
+  </div>
+  ${n ? `<div class="verped"><button id="verPed"><span>Ver pedido (${n})</span><span>${eur(tot)}</span></button></div>` : ''}`;
+  $('volver').onclick = () => { vista = 'pedidos'; vistaPanel(); };
+  app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { MOST.cat = b.dataset.cat; vistaPanel(); });
+  app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => elegirProducto(PRODS.find(p => p.id === b.dataset.prod)));
+  if ($('verPed')) $('verPed').onclick = () => { MOST.ver = true; vistaPanel(); window.scrollTo(0, 0); };
+}
+// El pedido de mostrador, en una pantalla aparte
+function vistaMostradorPedido() {
+  const tot = totalMost();
+  app.innerHTML = `<div class="barra"><button class="lnk" id="seguir" style="text-decoration:none;color:#000;font-weight:600">← Seguir añadiendo</button><b>Pedido</b><span style="width:60px"></span></div>
+  <div class="mostr solo">
+    <section class="ticket" aria-label="Pedido">
       <div>${MOST.lineas.map((l, i) => `<div class="tl"><div class="t"><b>${esc(l.nombre)}</b>${l.ops.length ? `<small>${esc(l.ops.map(o => o.nombre).join(', '))}</small>` : ''}<small>${eur(l.precio * l.qty)}</small></div>
-        <div class="cant"><button data-menos="${i}" aria-label="Quitar uno">−</button><b>${l.qty}</b><button data-mas="${i}" aria-label="Añadir uno">+</button></div></div>`).join('') || '<p class="sub">Toca los productos para añadirlos.</p>'}</div>
+        <div class="cant"><button data-menos="${i}" aria-label="Quitar uno">−</button><b>${l.qty}</b><button data-mas="${i}" aria-label="Añadir uno">+</button></div></div>`).join('') || '<p class="sub">El pedido está vacío. Vuelve a "Seguir añadiendo" para elegir productos.</p>'}</div>
+      ${MOST.lineas.length ? `<div class="tl" style="font-size:18px"><b style="flex:1">Total</b><b>${eur(tot)}</b></div>` : ''}
       <label class="campo">Nombre del cliente (opcional)<input id="mnom" maxlength="40" autocomplete="off" value="${esc(MOST.nombre)}" placeholder="Ej.: Juan"></label>
       <div class="campo">Cómo paga<div class="metodo"><button data-met="efectivo" class="${MOST.metodo === 'efectivo' ? 'on' : ''}">Efectivo</button><button data-met="tarjeta_caja" class="${MOST.metodo === 'tarjeta_caja' ? 'on' : ''}">Tarjeta</button></div></div>
       <button class="btn verde" id="crearMost" ${MOST.lineas.length ? '' : 'disabled'}>Crear pedido${tot ? ' · ' + eur(tot) : ''}</button>
       <p class="sub">Cóbralo en la caja como siempre. Aquí solo se apunta para la cola y el número.</p>
-    </aside>
+    </section>
   </div>`;
-  $('volver').onclick = () => { vista = 'pedidos'; vistaPanel(); };
+  $('seguir').onclick = () => { MOST.ver = false; vistaPanel(); window.scrollTo(0, 0); };
   $('mnom').oninput = e => MOST.nombre = e.target.value;
-  app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { MOST.cat = b.dataset.cat; vistaPanel(); });
-  app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => elegirProducto(PRODS.find(p => p.id === b.dataset.prod)));
   app.querySelectorAll('[data-met]').forEach(b => b.onclick = () => { MOST.metodo = b.dataset.met; vistaPanel(); });
   app.querySelectorAll('[data-mas]').forEach(b => b.onclick = () => { MOST.lineas[+b.dataset.mas].qty++; vistaPanel(); });
   app.querySelectorAll('[data-menos]').forEach(b => b.onclick = () => { const l = MOST.lineas[+b.dataset.menos]; if (--l.qty < 1) MOST.lineas.splice(+b.dataset.menos, 1); vistaPanel(); });
