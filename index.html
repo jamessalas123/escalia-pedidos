@@ -59,6 +59,11 @@ section.cat{padding:22px 16px 0;scroll-margin-top:52px}
 .badge{min-width:24px;height:24px;border-radius:12px;background:#fff;color:#000;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;padding:0 6px}
 .sheet{position:fixed;inset:0;z-index:20;background:#fff;overflow-y:auto;overscroll-behavior:contain;display:none;scroll-behavior:smooth}
 .sheet.escribiendo .foot{display:none}
+/* En "Tu pedido" el total y Pagar van al final, debajo de la casilla de aceptar: nunca la tapan */
+#pedido .inner{padding-bottom:0}
+#pedido .foot{position:static;border-top:1px solid var(--b);margin-top:18px;padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
+#pedido.escribiendo .foot{display:block}
+#pay.apagado{opacity:.45}
 .sheet.escribiendo .inner{padding-bottom:40vh}
 html.bloq,html.bloq body{overflow:hidden;background:#fff}
 html.bloq #app,html.bloq #bar{visibility:hidden}
@@ -433,7 +438,10 @@ function abrirPedido() {
     cart = []; save(); cerrar();
   };
   $('pb').onclick = cerrar; $('mas').onclick = cerrar;
-  $('cn').oninput = $('ct').oninput = $('acepto').onchange = () => { $('perr').textContent = ''; };
+  const marcarPago = () => $('pay').classList.toggle('apagado', !$('acepto').checked);
+  $('cn').oninput = $('ct').oninput = () => { $('perr').textContent = ''; };
+  $('acepto').onchange = () => { $('perr').textContent = ''; marcarPago(); };
+  marcarPago();
   el.querySelectorAll('[data-l]').forEach(a => a.onclick = ev => { ev.preventDefault(); abrirLegal(a.dataset.l); });
   $('pay').onclick = () => {
     const n = $('cn').value.trim(), t = $('ct').value.replace(/[\s.()-]/g, '');
