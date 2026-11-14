@@ -63,6 +63,7 @@ main{max-width:720px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-dire
 .vistas{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--linea);position:sticky;top:57px;background:#fff;z-index:4}
 .vistas button{flex:1;height:42px;border-radius:10px;border:none;background:var(--suave);font-weight:600;cursor:pointer;font-size:15px}
 .vistas button.on{background:#000;color:#fff}
+.globo[hidden]{display:none}
 .globo{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--rojo);color:#fff;font-size:13px;margin-left:4px}
 .etiq{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;letter-spacing:.3px;vertical-align:middle}
 .etiq.prueba{background:#FFF4E0;color:#8A5300}
@@ -156,6 +157,14 @@ main.ancho{max-width:1280px}
 /* Pedido en mostrador */
 .mostr{max-width:1280px;margin:0 auto;padding:14px 16px 140px;display:grid;gap:16px}
 .mostr.solo{max-width:640px}
+.mswitch{display:flex;gap:8px}
+.mswitch button{flex:1;height:52px;border-radius:12px;border:0;background:#F3F3F3;font:inherit;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.mswitch button.on{background:#000;color:#fff}.mswitch button.on.v{background:#0B7A3E}
+.entregas{display:flex;flex-direction:column;gap:10px}
+.ent{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--linea);border-radius:14px;padding:12px 14px;background:#fff}
+.ent-t{display:flex;align-items:center;gap:12px;min-width:0}
+.ent-t small{display:block;color:var(--gris);font-size:13px;margin-top:2px}
+.ent .btn{width:auto;flex:none;padding:0 18px}
 .verped{position:fixed;left:0;right:0;bottom:0;z-index:15;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--linea)}
 .verped button{width:100%;max-width:640px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;height:56px;padding:0 18px;border:0;border-radius:12px;background:#000;color:#fff;font:inherit;font-size:17px;font-weight:700;cursor:pointer}
 .prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
@@ -518,7 +527,14 @@ function procesarNuevos(nuevos, cambio) {
     return;
   }
   if (nuevos.length) { pitido(); aviso('Nuevo pedido ' + nuevos.map(p => p.codigo || '').join(', ')); }
-  if (vista === 'mostrador') return;
+  if (vista === 'mostrador') {
+    // En el mostrador: aviso suave cuando cocina pone un pedido en Listo, y se actualiza "Para entregar"
+    const listos = nuevos.listos || [];
+    if (listos.length && !nuevos.length) { pitidoSuave(); aviso(listos.map(p => p.codigo).join(', ') + ' listo para entregar'); }
+    if (MOST.tab === 'entregar' && !MOST.hecho) { if (!document.querySelector('#busE:focus')) vistaPanel(); }
+    else { const c = $('nEnt'); const n = PEDIDOS.filter(p => p.estado === 'listo').length; if (c) { c.textContent = n; c.hidden = !n; } }
+    return;
+  }
   if (nuevos.length && modo) { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
   if (vista === 'pedidos' && (nuevos.length || cambio) && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel();
 }
@@ -755,15 +771,53 @@ function pista(g) {
   return g.minimo >= 1 ? `Elige entre ${g.minimo} y ${g.maximo}` : `Opcional · hasta ${g.maximo}`;
 }
 const totalMost = () => MOST.lineas.reduce((a, l) => a + l.precio * l.qty, 0);
+function pestanasMostrador() {
+  const n = PEDIDOS.filter(p => p.estado === 'listo').length;
+  return `<div class="mswitch"><button data-mt="nuevo" class="${MOST.tab !== 'entregar' ? 'on' : ''}">+ Nuevo pedido</button><button data-mt="entregar" class="${MOST.tab === 'entregar' ? 'on v' : ''}">Para entregar <span class="globo" id="nEnt" ${n ? '' : 'hidden'}>${n}</span></button></div>`;
+}
+function conectarPestanasMostrador() {
+  app.querySelectorAll('[data-mt]').forEach(b => b.onclick = () => { MOST.tab = b.dataset.mt; MOST.ver = false; vistaPanel(); window.scrollTo(0, 0); });
+}
+// Pestaña "Para entregar": los pedidos listos, con Entregado; abajo los que siguen en cocina
+function vistaMostradorEntregar() {
+  const q = (MOST.busca || '').replace(/\D/g, '');
+  const listos = PEDIDOS.filter(p => p.estado === 'listo' && (!q || p.codigo.replace(/\D/g, '') === q));
+  const cocina = PEDIDOS.filter(p => ['nuevo', 'preparando'].includes(p.estado));
+  const enCocina = q && !listos.length ? PEDIDOS.find(p => p.codigo.replace(/\D/g, '') === q) : null;
+  app.innerHTML = `<div class="barra"><button class="lnk" id="volver" style="text-decoration:none;color:#000;font-weight:600">← Volver</button><b>Mostrador</b><span style="width:60px"></span></div>
+  <div class="mostr solo">
+    ${pestanasMostrador()}
+    <form id="fbusE" class="buscar" role="search"><input id="busE" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 26)" value="${esc(MOST.busca || '')}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form>
+    ${q ? `<button class="lnk" id="limpiarE" style="align-self:flex-start">Ver todos los listos</button>` : ''}
+    <div class="entregas">${listos.map(p => `<article class="ent" aria-label="Pedido ${esc(p.codigo)}">
+      <div class="ent-t"><span class="tk-num">${esc(p.codigo)}</span><span><b>${esc(p.cliente_nombre || (p.origen === 'mostrador' ? 'Mostrador' : 'Online'))}</b><small>${esc((p.lineas_pedido || []).map(l => l.cantidad + '× ' + l.nombre_producto).join(', '))}</small><small>${eur(p.total)} · ${p.origen === 'mostrador' ? (p.metodo_pago === 'tarjeta_caja' ? 'tarjeta' : 'efectivo') : (p.pagado ? 'pagado online' : 'sin pagar')}</small></span></div>
+      <button class="btn verde" data-ent="${p.id}">Entregado</button></article>`).join('')
+      || `<p class="sub vacio">${enCocina ? `${esc(enCocina.codigo)}: ${({ nuevo: 'nuevo, aún sin empezar', preparando: 'en preparación', entregado: 'ya entregado', cancelado: 'cancelado' })[enCocina.estado] || enCocina.estado}.` : q ? 'No hay ningún pedido P' + esc(q) + ' hoy.' : 'Nada para entregar ahora. Cuando cocina marque un pedido como listo, aparecerá aquí y sonará un aviso.'}</p>`}</div>
+    <p class="enprep">Todavía en cocina: ${cocina.length ? cocina.map(p => `<b>${esc(p.codigo)}</b> (${p.estado === 'nuevo' ? 'nuevo' : 'preparando'})`).join(', ') : 'ninguno'}</p>
+  </div>`;
+  $('volver').onclick = () => { vista = 'pedidos'; vistaPanel(); };
+  conectarPestanasMostrador();
+  $('fbusE').onsubmit = e => { e.preventDefault(); MOST.busca = $('busE').value.trim(); vistaPanel(); };
+  if ($('limpiarE')) $('limpiarE').onclick = () => { MOST.busca = ''; vistaPanel(); };
+  app.querySelectorAll('[data-ent]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Guardando…';
+    const { error } = await sb.from('pedidos').update({ estado: 'entregado' }).eq('id', b.dataset.ent);
+    if (error) { b.disabled = false; b.textContent = 'Entregado'; return aviso('No se pudo guardar. Revisa la conexión.'); }
+    const p = PEDIDOS.find(x => x.id === b.dataset.ent); if (p) { p.estado = 'entregado'; ESTADOS_ANT?.set(p.id, 'entregado'); }
+    aviso((p ? p.codigo + ' ' : '') + 'entregado ✓'); MOST.busca = ''; vistaPanel();
+  });
+}
 function vistaMostrador() {
   if (MOST.hecho) return vistaMostradorHecho();
+  if (MOST.tab === 'entregar') return vistaMostradorEntregar();
   if (MOST.ver) return vistaMostradorPedido();
   const cats = CATS.filter(c => PRODS.some(p => p.categoria_id === c.id));
   if (!MOST.cat || !cats.some(c => c.id === MOST.cat)) MOST.cat = cats[0]?.id;
   const ps = PRODS.filter(p => p.categoria_id === MOST.cat);
   const tot = totalMost(), n = MOST.lineas.reduce((a, l) => a + l.qty, 0);
-  app.innerHTML = `<div class="barra"><button class="lnk" id="volver" style="text-decoration:none;color:#000;font-weight:600">← Volver</button><b>Pedido en mostrador</b><span style="width:60px"></span></div>
+  app.innerHTML = `<div class="barra"><button class="lnk" id="volver" style="text-decoration:none;color:#000;font-weight:600">← Volver</button><b>Mostrador</b><span style="width:60px"></span></div>
   <div class="mostr">
+    ${pestanasMostrador()}
     <section aria-label="Carta">
       <nav class="tabs" aria-label="Secciones">${cats.map(c => `<button data-cat="${c.id}" class="${c.id === MOST.cat ? 'on' : ''}">${esc(c.nombre)}</button>`).join('')}</nav>
       <div class="prods">${ps.map(p => `<button class="prod" data-prod="${p.id}" ${p.disponible ? '' : 'disabled'}><span class="ph" style="${p.foto_url ? `background-image:url('${esc(p.foto_url)}')` : ''}"></span><span class="t"><b>${esc(p.nombre)}</b><span>${p.disponible ? eur(p.precio) : 'Agotado'}</span></span></button>`).join('')}</div>
@@ -774,6 +828,7 @@ function vistaMostrador() {
   app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { MOST.cat = b.dataset.cat; vistaPanel(); });
   app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => elegirProducto(PRODS.find(p => p.id === b.dataset.prod)));
   if ($('verPed')) $('verPed').onclick = () => { MOST.ver = true; vistaPanel(); window.scrollTo(0, 0); };
+  conectarPestanasMostrador();
 }
 // El pedido de mostrador, en una pantalla aparte
 function vistaMostradorPedido() {
