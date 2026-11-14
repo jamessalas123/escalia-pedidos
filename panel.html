@@ -184,6 +184,27 @@ main.ancho{max-width:1280px}
 html.bloq,html.bloq body{overflow:hidden}
 .grp{display:flex;flex-direction:column;gap:6px}
 .grp h3{margin:0;font-size:16px}
+.hoja.lista{gap:0;padding-bottom:0}
+.hoja.lista .grp{border:0;margin:0;padding:12px 0 6px;border-top:8px solid #F3F3F3;margin:0 -16px;padding-left:16px;padding-right:16px;scroll-margin-top:0;gap:0}
+.hoja.lista legend{width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 0 4px;float:left}
+.hoja.lista legend b{display:block;font-size:18px}.hoja.lista legend small{color:var(--gris);font-size:14px}
+.hcab{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:0 0 12px}.hcab h2{margin:0;font-size:22px}.hcab span{font-size:18px}
+.pill{font-size:12px;font-weight:700;background:#F3F3F3;border-radius:99px;padding:4px 10px;flex:none}
+.pill.err{background:#FDECEA;color:var(--rojo)}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;border-bottom:1px solid var(--linea);font-size:17px;cursor:pointer;clear:both}
+.opt.off{opacity:.45;cursor:default}
+.opt small{color:var(--gris);font-size:14px}
+.opt:has(input:checked){background:#E7F5EC;box-shadow:-16px 0 0 #E7F5EC,16px 0 0 #E7F5EC;font-weight:700}
+.hoja input[type=checkbox],.hoja input[type=radio]{-webkit-appearance:none;appearance:none;width:26px;height:26px;flex:none;margin:0;border:2px solid #8A8A8A;border-radius:6px;background:transparent;display:inline-grid;place-content:center;cursor:pointer}
+.hoja input[type=radio]{border-radius:50%}
+.hoja input:checked{background:#0B7A3E;border-color:#0B7A3E}
+.hoja input[type=checkbox]:checked::after{content:'';width:6px;height:12px;border:solid #fff;border-width:0 3px 3px 0;transform:translateY(-2px) rotate(45deg)}
+.hoja input[type=radio]:checked::after{content:'';width:10px;height:10px;border-radius:50%;background:#fff}
+.hoja.lista .campo{border-top:8px solid #F3F3F3;margin:0 -16px;padding:14px 16px;font-size:18px}
+.hoja.lista .campo input{height:50px;border:1px solid var(--borde);border-radius:10px;padding:0 12px;font:inherit;font-size:16px;font-weight:400}
+.hpie{position:sticky;bottom:0;background:#fff;display:flex;gap:10px;padding:12px 0 calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--linea);margin-top:auto}
+.hpie .claro{flex:0 0 34%}
+.tnota{display:block;color:var(--rojo);font-style:normal;font-size:13px;font-weight:600}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--borde);background:#fff;cursor:pointer;font-size:15px}
 .chips button.on{background:#0B7A3E;color:#fff;border-color:#0B7A3E;font-weight:700}
@@ -730,7 +751,7 @@ const gruposDe = pid => GRUPOS.filter(g => g.producto_id === pid).sort((a, b) =>
 const opcsDe = gid => OPCS.filter(o => o.grupo_id === gid).sort((a, b) => (a.orden || 0) - (b.orden || 0));
 const nombreGrupo = n => (n || '').replace(/ \(.*\)$/, '');
 function pista(g) {
-  if (g.maximo === 1) return g.minimo >= 1 ? 'Obligatorio · elige 1' : 'Opcional · elige 1';
+  if (g.maximo === 1) return g.minimo >= 1 ? 'Elige 1' : 'Opcional · elige 1';
   return g.minimo >= 1 ? `Elige entre ${g.minimo} y ${g.maximo}` : `Opcional · hasta ${g.maximo}`;
 }
 const totalMost = () => MOST.lineas.reduce((a, l) => a + l.precio * l.qty, 0);
@@ -760,7 +781,7 @@ function vistaMostradorPedido() {
   app.innerHTML = `<div class="barra"><button class="lnk" id="seguir" style="text-decoration:none;color:#000;font-weight:600">← Seguir añadiendo</button><b>Pedido</b><span style="width:60px"></span></div>
   <div class="mostr solo">
     <section class="ticket" aria-label="Pedido">
-      <div>${MOST.lineas.map((l, i) => `<div class="tl"><div class="t"><b>${esc(l.nombre)}</b>${l.ops.length ? `<small>${esc(l.ops.map(o => o.nombre).join(', '))}</small>` : ''}<small>${eur(l.precio * l.qty)}</small></div>
+      <div>${MOST.lineas.map((l, i) => `<div class="tl"><div class="t"><b>${esc(l.nombre)}</b>${l.ops.length ? `<small>${esc(l.ops.map(o => o.nombre).join(', '))}</small>` : ''}${l.nota ? `<em class="tnota">⚠ ${esc(l.nota)}</em>` : ''}<small>${eur(l.precio * l.qty)}</small></div>
         <div class="cant"><button data-menos="${i}" aria-label="Quitar uno">−</button><b>${l.qty}</b><button data-mas="${i}" aria-label="Añadir uno">+</button></div></div>`).join('') || '<p class="sub">El pedido está vacío. Vuelve a "Seguir añadiendo" para elegir productos.</p>'}</div>
       ${MOST.lineas.length ? `<div class="tl" style="font-size:18px"><b style="flex:1">Total</b><b>${eur(tot)}</b></div>` : ''}
       <label class="campo">Nombre del cliente (opcional)<input id="mnom" maxlength="40" autocomplete="off" value="${esc(MOST.nombre)}" placeholder="Ej.: Juan"></label>
@@ -776,47 +797,57 @@ function vistaMostradorPedido() {
   app.querySelectorAll('[data-menos]').forEach(b => b.onclick = () => { const l = MOST.lineas[+b.dataset.menos]; if (--l.qty < 1) MOST.lineas.splice(+b.dataset.menos, 1); vistaPanel(); });
   $('crearMost').onclick = crearMostrador;
 }
-function anadirLinea(p, ops) {
+function anadirLinea(p, ops, nota = '') {
   const precio = Number(p.precio) + ops.reduce((a, o) => a + Number(o.extra || 0), 0);
-  const clave = p.id + '|' + ops.map(o => o.grupo + ':' + o.nombre).join(',');
+  const clave = p.id + '|' + ops.map(o => o.grupo + ':' + o.nombre).join(',') + '|' + nota;
   const igual = MOST.lineas.find(l => l.clave === clave);
-  if (igual) igual.qty++; else MOST.lineas.push({ clave, pid: p.id, nombre: p.nombre, precio, qty: 1, ops });
+  if (igual) igual.qty++; else MOST.lineas.push({ clave, pid: p.id, nombre: p.nombre, precio, qty: 1, ops, nota });
   aviso(p.nombre + ' añadido'); vistaPanel();
 }
 function elegirProducto(p) {
   const gs = gruposDe(p.id).filter(g => opcsDe(g.id).length);
-  if (!gs.length) return anadirLinea(p, []);
-  const sel = {}; gs.forEach(g => sel[g.id] = []);
+  if (!gs.length) return anadirLinea(p, [], '');
   const velo = document.createElement('div'); velo.className = 'velo';
-  const pintar = () => {
-    const extra = gs.reduce((a, g) => a + sel[g.id].reduce((b, oid) => b + Number(OPCS.find(o => o.id === oid).precio_extra || 0), 0), 0);
-    const falta = gs.find(g => sel[g.id].length < g.minimo);
-    velo.innerHTML = `<div class="hoja" role="dialog" aria-modal="true" aria-label="${esc(p.nombre)}">
-      <h2>${esc(p.nombre)}</h2>
-      ${gs.map(g => `<div class="grp"><h3>${esc(nombreGrupo(g.nombre))} <span class="sub" style="font-weight:400">${pista(g)}</span></h3><div class="chips">${opcsDe(g.id).map(o => `<button data-g="${g.id}" data-o="${o.id}" class="${sel[g.id].includes(o.id) ? 'on' : ''}" ${o.disponible ? '' : 'disabled'}>${esc(o.nombre)}${Number(o.precio_extra) ? ` (${Number(o.precio_extra) > 0 ? '+' : ''}${eur(o.precio_extra)})` : ''}</button>`).join('')}</div></div>`).join('')}
-      <button class="btn" id="hOk" ${falta ? 'disabled' : ''}>${falta ? 'Falta: ' + esc(nombreGrupo(falta.nombre)) : 'Añadir · ' + eur(Number(p.precio) + extra)}</button>
-      <button class="btn claro" id="hNo">Cancelar</button></div>`;
-    velo.querySelectorAll('[data-o]').forEach(b => b.onclick = () => {
-      const g = gs.find(x => x.id === b.dataset.g), lst = sel[g.id], oid = b.dataset.o;
-      const excl = id => /completa/i.test(OPCS.find(o => o.id === id)?.nombre || '');
-      if (lst.includes(oid)) lst.splice(lst.indexOf(oid), 1);
-      else if (g.maximo === 1) sel[g.id] = [oid];
-      else if (lst.some(x => excl(x) !== excl(oid))) sel[g.id] = [oid];
-      else if (lst.length < g.maximo) lst.push(oid);
-      else return aviso('Máximo ' + g.maximo);
-      pintar();
-    });
-    velo.querySelector('#hNo').onclick = cerrar;
-    velo.querySelector('#hOk').onclick = () => {
-      const ops = gs.flatMap(g => sel[g.id].map(oid => { const o = OPCS.find(x => x.id === oid); return { grupo: g.nombre, nombre: o.nombre, extra: o.precio_extra }; }));
-      cerrar(); anadirLinea(p, ops);
-    };
+  // Igual que la ficha de la página de ventas: una lista por grupo (bolita = elige 1, cuadrito = varias), instrucciones y Añadir
+  velo.innerHTML = `<div class="hoja lista" role="dialog" aria-modal="true" aria-label="${esc(p.nombre)}">
+    <div class="hcab"><h2>${esc(p.nombre)}</h2><span>${eur(p.precio)}</span></div>
+    ${gs.map(g => `<fieldset class="grp" id="grp-${g.id}"><legend><span><b>${esc(nombreGrupo(g.nombre))}</b><small>${pista(g)}</small></span>${g.minimo > 0 ? `<span class="pill" id="pg-${g.id}">Obligatorio</span>` : ''}</legend>
+      ${opcsDe(g.id).map(o => `<label class="opt ${o.disponible ? '' : 'off'}"><span>${esc(o.nombre)}${Number(o.precio_extra) ? ` <small>(${Number(o.precio_extra) > 0 ? '+' : ''}${eur(o.precio_extra)})</small>` : ''}${o.disponible ? '' : ' <small>· agotado</small>'}</span><input type="${g.maximo > 1 ? 'checkbox' : 'radio'}" name="g-${g.id}" value="${o.id}" ${o.disponible ? '' : 'disabled'}></label>`).join('')}
+    </fieldset>`).join('')}
+    <label class="campo">Instrucciones especiales<input id="hNota" maxlength="120" autocomplete="off" placeholder="Ej.: sin cebolla, salsa aparte"></label>
+    <div class="hpie"><button class="btn claro" id="hNo">Cancelar</button><button class="btn" id="hOk"></button></div>
+  </div>`;
+  const hoja = velo.querySelector('.hoja');
+  const marcadas = g => [...hoja.querySelectorAll(`input[name="g-${g.id}"]:checked`)].map(x => x.value);
+  const extra = () => gs.reduce((a, g) => a + marcadas(g).reduce((b, oid) => b + Number(OPCS.find(o => o.id === oid).precio_extra || 0), 0), 0);
+  const upd = () => { velo.querySelector('#hOk').textContent = 'Añadir · ' + eur(Number(p.precio) + extra()); };
+  const excl = id => /completa/i.test(OPCS.find(o => o.id === id)?.nombre || '');
+  hoja.querySelectorAll('input[name^="g-"]').forEach(r => r.onchange = () => {
+    const g = gs.find(x => 'g-' + x.id === r.name);
+    const pg = $('pg-' + g.id); if (pg) { pg.classList.remove('err'); pg.textContent = 'Obligatorio'; }
+    if (r.type === 'checkbox' && r.checked) {
+      // "Ensalada completa" excluye los ingredientes sueltos, y al revés
+      hoja.querySelectorAll(`input[name="${r.name}"]:checked`).forEach(x => { if (x !== r && excl(x.value) !== excl(r.value)) x.checked = false; });
+      if (marcadas(g).length > g.maximo) { r.checked = false; aviso('Máximo ' + g.maximo); }
+    }
+    // Elegida la bolita, baja solo al siguiente grupo
+    if (r.type === 'radio') { const sig = $('grp-' + g.id).nextElementSibling; if (sig) setTimeout(() => sig.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); }
+    upd();
+  });
+  upd();
+  velo.querySelector('#hNo').onclick = () => cerrar();
+  velo.querySelector('#hOk').onclick = () => {
+    const falta = gs.find(g => marcadas(g).length < g.minimo);
+    if (falta) { const pg = $('pg-' + falta.id); if (pg) { pg.classList.add('err'); pg.textContent = 'Elige una opción'; } $('grp-' + falta.id).scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    const ops = gs.flatMap(g => marcadas(g).map(oid => { const o = OPCS.find(x => x.id === oid); return { grupo: g.nombre, nombre: o.nombre, extra: o.precio_extra }; }));
+    const nota = velo.querySelector('#hNota').value.trim();
+    cerrar(); anadirLinea(p, ops, nota);
   };
   const cerrar = () => { velo.remove(); document.documentElement.classList.remove('bloq'); document.removeEventListener('keydown', esc_); };
   const esc_ = e => { if (e.key === 'Escape') cerrar(); };
   velo.onclick = e => { if (e.target === velo) cerrar(); };
   document.addEventListener('keydown', esc_);
-  pintar(); document.body.appendChild(velo); document.documentElement.classList.add('bloq');
+  document.body.appendChild(velo); document.documentElement.classList.add('bloq');
 }
 async function crearMostrador() {
   if (!MOST.metodo) return aviso('Elige cómo paga: efectivo o tarjeta');
@@ -824,7 +855,7 @@ async function crearMostrador() {
   creandoMostrador = true;
   const { data, error } = await sb.rpc('crear_pedido_mostrador', {
     p_negocio: N.id, p_nombre: MOST.nombre.trim(), p_metodo: MOST.metodo, p_notas: null,
-    p_lineas: MOST.lineas.map(l => ({ pid: l.pid, qty: l.qty, ops: l.ops.map(o => ({ grupo: o.grupo, nombre: o.nombre })) }))
+    p_lineas: MOST.lineas.map(l => ({ pid: l.pid, qty: l.qty, nota: l.nota || null, ops: l.ops.map(o => ({ grupo: o.grupo, nombre: o.nombre })) }))
   });
   if (data?.[0] && VISTOS) VISTOS.add(data[0].id);
   setTimeout(() => { creandoMostrador = false; }, 3000);
