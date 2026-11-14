@@ -57,9 +57,10 @@ section.cat{padding:22px 16px 0;scroll-margin-top:52px}
 .btn{display:flex;align-items:center;justify-content:center;width:100%;max-width:688px;margin:0 auto;height:54px;border-radius:8px;border:0;background:#000;color:#fff;font-size:16px;font-weight:600;cursor:pointer;gap:10px}
 .btn.split{justify-content:space-between;padding:0 18px}
 .badge{min-width:24px;height:24px;border-radius:12px;background:#fff;color:#000;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;padding:0 6px}
-.sheet{position:fixed;inset:0;z-index:20;background:#fff;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:none}
+.sheet{position:fixed;inset:0;z-index:20;background:#fff;overflow-y:auto;overscroll-behavior:contain;display:none;scroll-behavior:smooth}
+.sheet.escribiendo .foot{display:none}
+.sheet.escribiendo .inner{padding-bottom:40vh}
 html.bloq,html.bloq body{overflow:hidden;background:#fff}
-html.bloq body{position:fixed;left:0;right:0;width:100%}
 html.bloq #app,html.bloq #bar{visibility:hidden}
 .sheet.open{display:block}
 #alerg{z-index:30}
@@ -144,6 +145,15 @@ try { cart = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { cart =
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {} };
 const abiertas = () => document.querySelectorAll('.sheet.open').length;
 let scrollY0 = 0;
+// Mientras se escribe en una hoja: se oculta la barra de "Pagar" para que no tape el cuadro, y el cuadro se centra en pantalla
+const esCampo = t => t && t.matches && t.matches('input:not([type=checkbox]):not([type=radio]),textarea');
+document.addEventListener('focusin', e => {
+  const sh = e.target.closest && e.target.closest('.sheet'); if (!sh || !esCampo(e.target)) return;
+  sh.classList.add('escribiendo');
+  setTimeout(() => { if (document.activeElement === e.target) e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 350);
+});
+document.addEventListener('focusout', () => setTimeout(() => { if (!esCampo(document.activeElement)) document.querySelectorAll('.sheet.escribiendo').forEach(s => s.classList.remove('escribiendo')); }, 150));
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'cn') { e.preventDefault(); const t = document.getElementById('ct'); if (t) t.focus(); } else if (e.key === 'Enter' && e.target && e.target.id === 'ct') e.target.blur(); });
 const lock = () => {
   const h = document.documentElement, abierto = abiertas() > 0;
   if (abierto && !h.classList.contains('bloq')) { scrollY0 = window.scrollY; document.body.style.top = -scrollY0 + 'px'; h.classList.add('bloq'); }
@@ -402,8 +412,8 @@ function abrirPedido() {
       <button id="mas" style="margin:12px 0 4px;padding:9px 14px;border-radius:999px;border:0;background:var(--s);font-weight:500;cursor:pointer">+ Añadir más productos</button>
       <label class="field" style="font-size:16px;margin-top:18px">Observaciones del pedido<input id="obs" maxlength="200" placeholder="Ej.: salsa aparte"></label>
       <h2 style="font-size:16px;margin:22px 0 0">Tus datos</h2>
-      <label class="field">Nombre<input id="cn" autocomplete="given-name" maxlength="40" placeholder="Para llamarte al recoger" value="${esc(datos.n || '')}"></label>
-      <label class="field">WhatsApp<input id="ct" type="tel" autocomplete="tel" maxlength="20" placeholder="+34 600 000 000" value="${esc(datos.t || '')}"></label>
+      <label class="field">Nombre<input id="cn" autocomplete="given-name" maxlength="40" enterkeyhint="next" placeholder="Para llamarte al recoger" value="${esc(datos.n || '')}"></label>
+      <label class="field">WhatsApp<input id="ct" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" enterkeyhint="done" placeholder="+34 600 000 000" value="${esc(datos.t || '')}"></label>
       <p class="err" id="perr" role="alert"></p>
       <p class="muted" style="font-size:12px">Usamos tu nombre y tu WhatsApp solo para gestionar tu pedido y avisarte cuando esté listo.</p>
       <label class="chk"><input type="checkbox" id="recordar" ${datos.n ? 'checked' : ''}><span>Recordar mis datos en este móvil para el próximo pedido (opcional)</span></label>
