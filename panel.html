@@ -128,6 +128,9 @@ main.ancho{max-width:1280px}
 .doc-texto table{border-collapse:collapse;width:100%;font-size:13px}.doc-texto td,.doc-texto th{border:1px solid var(--linea);padding:6px;text-align:left;vertical-align:top}
 .acepto{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.45}
 .acepto input{width:22px;height:22px;flex:none;margin-top:1px}
+.sonido-fila{display:flex;justify-content:center;align-items:center;gap:12px;font-size:14px;flex-wrap:wrap}
+.son{font-weight:600}.son.on{color:var(--verde)}.son.off{color:var(--gris)}
+.toque{margin:0;text-align:center;background:#FFF1C2;color:#6B4A00;border-radius:10px;padding:10px;font-size:14px;font-weight:600}
 .etiq.most{background:#E8EEF9;color:#1A3F7A}
 .etiq.pagado{background:#E7F5EC;color:#0B6B37}
 .acciones{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
@@ -192,7 +195,7 @@ const app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const eur = n => Number(n || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
-let usuario = null, N = null, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], pestana = null, vista = 'pedidos', PEDIDOS = [], verHechos = false, canal = null, sonidoOk = false;
+let usuario = null, N = null, CATS = [], PRODS = [], GRUPOS = [], OPCS = [], pestana = null, vista = 'pedidos', PEDIDOS = [], verHechos = false, canal = null;
 
 function aviso(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('on'), 2200); }
 
@@ -429,13 +432,24 @@ async function cargarPedidos() {
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
   PEDIDOS = data || [];
 }
+/* Sonido de pedidos nuevos: ACTIVADO siempre por defecto. Solo se apaga si el dueño pulsa "Silenciar".
+   El navegador no deja sonar hasta el primer toque en la pantalla: cualquier toque lo desbloquea. */
+let silenciado = false;
+try { silenciado = localStorage.getItem('panel-silenciado') === '1'; } catch (e) {}
+function audioCtx() { return pitido.ctx || (pitido.ctx = new (window.AudioContext || window.webkitAudioContext)()); }
+function audioListo() { try { return audioCtx().state === 'running'; } catch (e) { return false; } }
+function desbloquearAudio() {
+  try { const c = audioCtx(); if (c.state !== 'running') c.resume().then(() => { if (vista === 'pedidos' && document.getElementById('avisoToque')) vistaPanel(); }); } catch (e) {}
+}
+document.addEventListener('pointerdown', desbloquearAudio, { passive: true });
+document.addEventListener('keydown', desbloquearAudio);
 function pitido() {
-  if (!sonidoOk) return;
+  if (silenciado) return;
   try {
-    const ctx = pitido.ctx || (pitido.ctx = new (window.AudioContext || window.webkitAudioContext)());
-    [0, 0.25, 0.5].forEach(t => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15); });
+    const ctx = audioCtx(); if (ctx.state !== 'running') ctx.resume();
+    [0, 0.25, 0.5, 1.0, 1.25, 1.5].forEach(t => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = t < 0.9 ? 880 : 1175; g.gain.value = 0.18; o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15); });
   } catch (e) {}
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 300]);
 }
 function escucharPedidos() {
   if (canal) sb.removeChannel(canal);
@@ -501,7 +515,8 @@ function vistaPedidos() {
   const entregados = PEDIDOS.filter(p => p.estado === 'entregado');
   app.innerHTML = `${cabecera()}
   <main class="ancho">
-    ${sonidoOk ? '' : '<button class="btn claro" id="sonido">🔔 Activar sonido de pedidos nuevos</button>'}
+    <div class="sonido-fila">${silenciado ? '<span class="son off">🔕 Sonido silenciado</span><button class="lnk" id="sonido">Activar sonido</button>' : `<span class="son on">🔔 Sonido de pedidos activado</span><button class="lnk" id="sonido">Silenciar</button>`}</div>
+    ${!silenciado && !audioListo() ? '<p class="toque" id="avisoToque">Toca la pantalla una vez para que el sonido pueda funcionar.</p>' : ''}
     ${contarAgotados() ? `<button class="avisoag" id="verAg">⚠ Tienes ${contarAgotados()} agotado${contarAgotados() > 1 ? 's' : ''} — <u>Ver y activar</u></button>` : ''}
     ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
     <div class="acciones"><button class="btn" id="nuevoMost">+ Pedido en mostrador</button>
@@ -513,7 +528,7 @@ function vistaPedidos() {
     <p class="sub" style="text-align:center">Entregado hoy: <strong>${eur(entregados.reduce((a, p) => a + Number(p.total), 0))}</strong> en ${entregados.length} pedidos</p>
   </main>`;
   conectarCabecera();
-  if ($('sonido')) $('sonido').onclick = () => { sonidoOk = true; pitido(); vistaPanel(); };
+  $('sonido').onclick = () => { silenciado = !silenciado; try { localStorage.setItem('panel-silenciado', silenciado ? '1' : '0'); } catch (e) {} if (!silenciado) pitido(); vistaPanel(); };
   if ($('verAg')) $('verAg').onclick = () => { vista = 'carta'; pestana = 'agot'; vistaPanel(); window.scrollTo(0, 0); };
   $('hechos').onclick = () => { verHechos = !verHechos; vistaPanel(); };
   $('nuevoMost').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: null, hecho: null }; vista = 'mostrador'; vistaPanel(); window.scrollTo(0, 0); };
