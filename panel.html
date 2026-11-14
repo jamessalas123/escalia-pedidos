@@ -436,10 +436,15 @@ const ESTADOS = { nuevo: 'Nuevo', preparando: 'Preparando', listo: 'Listo', entr
 const ANTERIOR = { preparando: 'nuevo', listo: 'preparando', entregado: 'listo', cancelado: 'nuevo' };
 const hoyMadrid = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 async function cargarPedidos() {
-  const { data } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,avisado_en,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
+  const { data, error } = await sb.from('pedidos').select('id,codigo,origen,metodo_pago,avisado_en,estado,cliente_nombre,cliente_telefono,notas,total,pagado,creado_en,lineas_pedido(nombre_producto,cantidad,opciones,observaciones,precio_unitario)')
     .eq('negocio_id', N.id).eq('fecha', hoyMadrid()).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
+  if (error) return []; // sin red: se mantiene lo que ya se ve
+  const nuevos = VISTOS ? (data || []).filter(p => !VISTOS.has(p.id) && p.origen !== 'mostrador' && p.estado === 'nuevo') : [];
+  VISTOS = new Set((data || []).map(p => p.id));
   PEDIDOS = data || [];
+  return nuevos;
 }
+let VISTOS = null; // ids ya conocidos, para pitar solo con los nuevos (llegue el aviso en directo o por la revisión)
 /* Sonido de pedidos nuevos: ACTIVADO siempre por defecto. Solo se apaga si el dueño pulsa "Silenciar".
    El navegador no deja sonar hasta el primer toque en la pantalla: cualquier toque lo desbloquea. */
 let silenciado = false;
@@ -459,26 +464,47 @@ function pitido() {
   } catch (e) {}
   if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 300]);
 }
+// Pedidos nuevos: pitido + aviso + se muestran en "Nuevos"
+function procesarNuevos(nuevos, cambio) {
+  if (nuevos.length) { pitido(); aviso('Nuevo pedido ' + nuevos.map(p => p.codigo || '').join(', ')); }
+  if (vista === 'mostrador') return;
+  if (nuevos.length) { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
+  if (vista === 'pedidos' && (nuevos.length || cambio) && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel();
+}
+// Conexión en directo (avisa al momento). Si falla, se reintenta como mucho cada 30 s y mientras tanto se revisa cada 15 s.
+let enDirecto = false, ultimoIntento = 0;
+function suscribir() {
+  ultimoIntento = Date.now();
+  if (canal) { const viejo = canal; canal = null; sb.removeChannel(viejo); }
+  const ch = sb.channel('pedidos-' + N.id);
+  canal = ch;
+  ch.on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'negocio_id=eq.' + N.id }, async () => {
+    procesarNuevos(await cargarPedidos(), true);
+  }).subscribe(est => {
+    if (ch !== canal) return; // avisos de una conexión vieja: se ignoran
+    enDirecto = est === 'SUBSCRIBED';
+  });
+}
 function escucharPedidos() {
-  if (canal) sb.removeChannel(canal);
-  canal = sb.channel('pedidos-' + N.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos', filter: 'negocio_id=eq.' + N.id }, async ev => {
-      await cargarPedidos();
-      if (ev.eventType === 'INSERT' && ev.new.origen !== 'mostrador') { pitido(); aviso('Nuevo pedido ' + (ev.new.codigo || '')); }
-      if (vista === 'mostrador') return;
-      // Pedido nuevo: se muestra al momento, en la columna "Nuevos", estés donde estés
-      if (ev.eventType === 'INSERT') { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
-      if (vista === 'pedidos') vistaPanel();
-    }).subscribe(est => { if (est === 'SUBSCRIBED') marcarConexion(true); else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(est)) marcarConexion(false); });
-  // Latido: cada minuto el panel avisa de que el local está conectado (si no, la carta cierra los pedidos online a los 5 min)
-  // y de paso refresca los pedidos por si se perdió algún aviso
+  VISTOS = new Set(PEDIDOS.map(p => p.id));
+  suscribir();
+  // Latido: cada 15 s revisa los pedidos (por si falla el directo); cada minuto avisa a la carta de que el local está conectado.
+  let vueltas = 0;
   const tic = async () => {
-    const { error } = await sb.rpc('latido_panel', { p_negocio: N.id });
-    marcarConexion(!error && navigator.onLine);
-    if (!error) { await cargarPedidos(); if (vista === 'pedidos' && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel(); }
+    const latido = vueltas++ % 4 === 0;
+    if (latido) {
+      const { error } = await sb.rpc('latido_panel', { p_negocio: N.id });
+      marcarConexion(!error && navigator.onLine);
+    } else if (enDirecto && !sinConexion) return;
+    if (!navigator.onLine) return marcarConexion(false);
+    const antes = JSON.stringify(PEDIDOS.map(p => [p.id, p.estado]));
+    const nuevos = await cargarPedidos();
+    if (!latido && sinConexion && navigator.onLine) { const { error } = await sb.rpc('latido_panel', { p_negocio: N.id }); marcarConexion(!error); }
+    procesarNuevos(nuevos, JSON.stringify(PEDIDOS.map(p => [p.id, p.estado])) !== antes);
+    if (!enDirecto && Date.now() - ultimoIntento > 30000) suscribir();
   };
   clearInterval(escucharPedidos.t); tic();
-  escucharPedidos.t = setInterval(tic, 60000);
+  escucharPedidos.t = setInterval(tic, 15000);
 }
 /* Aviso rojo fijo cuando el panel no tiene conexión */
 let sinConexion = false;
@@ -500,10 +526,10 @@ function marcarConexion(ok) {
       b.querySelector('#pausaMsg').textContent = 'Este aparato no tiene internet. Abre el panel en tu móvil con datos y pulsa "Pausar pedidos online" en "Carta y pausa". Si no, la carta se cerrará sola a los 5 minutos.';
     };
   } else if (!sinConexion && b) b.remove();
-  if (antes && !sinConexion) { aviso('Conexión recuperada'); if (canal && canal.state !== 'joined') escucharPedidos(); }
+  if (antes && !sinConexion) { aviso('Conexión recuperada'); if (!enDirecto && Date.now() - ultimoIntento > 30000) suscribir(); }
 }
 window.addEventListener('offline', () => marcarConexion(false));
-window.addEventListener('online', () => { if (N) escucharPedidos(); });
+window.addEventListener('online', () => { if (N && typeof escucharPedidos.t !== 'undefined') sb.rpc('latido_panel', { p_negocio: N.id }).then(({ error }) => marcarConexion(!error)); });
 // Despedida: al cerrar, salir, cambiar de app o apagar la pantalla, el panel avisa de que se va a propósito.
 // Así la carta solo se cierra si el panel estaba abierto y dejó de dar señal sin despedirse (caída de internet).
 let tokenPanel = null;
