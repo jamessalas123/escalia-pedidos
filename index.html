@@ -448,7 +448,7 @@ async function enviarPedido(nombre, tel, obs) {
     b.disabled = false; b.textContent = 'Pagar ' + eur(total());
     const m = error?.message || '';
     e.style.color = '';
-    e.textContent = /pausad/i.test(m) ? 'El local ha pausado los pedidos online. Inténtalo en un rato.' : /no disponible/i.test(m) ? 'Algún producto de tu pedido ya no está disponible. Revísalo.' : 'No se pudo enviar el pedido. Inténtalo de nuevo.';
+    e.textContent = /pausad/i.test(m) ? 'El local ha pausado los pedidos online. Inténtalo en un rato.' : /no disponible/i.test(m) ? 'Algún producto de tu pedido ya no está disponible. Revísalo.' : /Demasiados|muchos pedidos/i.test(m) ? m : 'No se pudo enviar el pedido. Inténtalo de nuevo.';
     return;
   }
   const ped = data[0];
