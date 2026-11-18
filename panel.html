@@ -490,6 +490,9 @@ async function cargarPedidos() {
   PEDIDOS = data || [];
   return nuevos;
 }
+// Decisión 15-nov-2026: los pedidos de mostrador se cobran y facturan solo en la caja del local (HioPos).
+// El código del mostrador se conserva, pero el botón queda oculto.
+const MOSTRADOR_ACTIVO = false;
 let ESTADOS_ANT = null, creandoMostrador = false; // mientras este aparato crea un pedido de mostrador, no se pita por él
 let VISTOS = null; // ids ya conocidos, para pitar solo con los nuevos (llegue el aviso en directo o por la revisión)
 /* Sonido de pedidos nuevos: ACTIVADO siempre por defecto. Solo se apaga si el dueño pulsa "Silenciar".
@@ -702,7 +705,7 @@ function vistaPedidos() {
     ${!silenciado && !audioListo() ? '<p class="toque" id="avisoToque">Toca la pantalla una vez para que el sonido pueda funcionar.</p>' : ''}
     ${contarAgotados() ? `<button class="avisoag" id="verAg">⚠ Tienes ${contarAgotados()} agotado${contarAgotados() > 1 ? 's' : ''} — <u>Ver y activar</u></button>` : ''}
     ${N.pedidos_pausados ? '<p class="error" style="text-align:center">Los pedidos online están pausados. Puedes reanudarlos en "Carta y pausa".</p>' : ''}
-    <div class="acciones">${modo === 'cocina' ? '' : '<button class="btn" id="nuevoMost">+ Pedido en mostrador</button>'}
+    <div class="acciones">${modo === 'cocina' || !MOSTRADOR_ACTIVO ? '' : '<button class="btn" id="nuevoMost">+ Pedido en mostrador</button>'}
     <form id="fbus" class="buscar" role="search"><input id="bus" inputmode="numeric" placeholder="Buscar nº de pedido (ej.: 5)" value="${esc(buscado.replace(/^p/, ''))}" aria-label="Buscar número de pedido"><button class="btn" style="width:auto;padding:0 18px">Buscar</button></form></div>
     ${COLS.length > 1 ? `<nav class="colnav" aria-label="Estados">${COLS.map(([e, t]) => `<button data-col="${e}" class="${colMovil === e ? 'on' : ''}">${t} <span>${por(e).length}</span></button>`).join('')}</nav>` : ''}
     <div class="tablero ${['', 'uno', 'dos'][COLS.length] || ''}">${COLS.map(([e, t]) => `<section class="columna ${e} ${colMovil === e ? 'on' : ''}" aria-label="${t}"><h2 class="colt ${e}" ${COLS.length === 1 ? 'style="display:block"' : ''}>${t} <span>${por(e).length}</span></h2>${por(e).map(tarjetaPedido).join('') || `<p class="sub vacio">${e === 'nuevo' ? 'Sin pedidos nuevos. Aparecerán aquí al momento.' : e === 'listo' && modo === 'caja' ? 'Nada para entregar. Cuando cocina marque un pedido como listo, aparecerá aquí y sonará un aviso.' : 'Nada por ahora.'}</p>`}</section>`).join('')}</div>
