@@ -63,6 +63,14 @@ main{max-width:720px;margin:0 auto;padding:18px 16px 80px;display:flex;flex-dire
 .vistas{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--linea);position:sticky;top:57px;background:#fff;z-index:4}
 .vistas button{flex:1;height:42px;border-radius:10px;border:none;background:var(--suave);font-weight:600;cursor:pointer;font-size:15px}
 .vistas button.on{background:#000;color:#fff}
+.cierre-num{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cierre-num div{background:var(--suave);border-radius:12px;padding:14px}
+.cierre-num small{display:block;color:var(--gris);font-size:13px}
+.cierre-num b{display:block;font-size:26px;margin-top:4px}
+.cierre-lista{border-top:1px solid var(--linea)}
+.cierre-lista div{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--linea);font-size:15px}
+.cierre-lista em{font-style:normal;font-size:12px;color:var(--rojo);margin-left:6px}
+.cuadre{background:#E7F5EC;color:#0B6B37;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.5}
 .globo[hidden]{display:none}
 .globo{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--rojo);color:#fff;font-size:13px;margin-left:4px}
 .etiq{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;letter-spacing:.3px;vertical-align:middle}
@@ -411,15 +419,15 @@ function opcionesUnicas() {
 }
 
 /* ---------- Panel ---------- */
-function vistaPanel() { if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') (modo ? vistaPedidos() : vistaElegirModo()); else vistaCarta(); }
+function vistaPanel() { if (vista === 'cierre') vistaCierre(); else if (vista === 'mostrador') vistaMostrador(); else if (vista === 'pedidos') (modo ? vistaPedidos() : vistaElegirModo()); else vistaCarta(); }
 function cabecera() {
   const n = PEDIDOS.filter(p => p.estado === (modo === 'caja' ? 'listo' : 'nuevo')).length;
   return `<div class="barra"><b>${esc(N.nombre)}</b>${modo !== 'todo' ? `<button class="modo-chip" id="cambiarModo" aria-label="Cambiar modo de este aparato">${NOMBRE_MODO[modo]} · <u>cambiar</u></button>` : ''}<button class="lnk" id="salir">Salir</button></div>
-  <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button></nav>`;
+  <nav class="vistas" aria-label="Secciones del panel"><button data-v="pedidos" class="${vista === 'pedidos' ? 'on' : ''}">Pedidos${n ? ` <span class="globo">${n}</span>` : ''}</button><button data-v="carta" class="${vista === 'carta' ? 'on' : ''}">Carta y pausa</button>${modo === 'cocina' ? '' : `<button data-v="cierre" class="${vista === 'cierre' ? 'on' : ''}">Cierre</button>`}</nav>`;
 }
 function conectarCabecera() {
   $('salir').onclick = () => { despedirse(); sb.auth.signOut(); };
-  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'pedidos' && modo !== 'caja' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
+  app.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { vista = b.dataset.v; if (vista === 'cierre') { CIERRE = { fecha: hoyMadrid(), datos: null }; } if (vista === 'pedidos' && modo !== 'caja' && PEDIDOS.some(p => p.estado === 'nuevo')) colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); });
 }
 function vistaCarta() {
   const grupos = [...new Set(opcionesUnicas().map(x => x.grupo))];
@@ -538,6 +546,7 @@ function procesarNuevos(nuevos, cambio) {
     else { const c = $('nEnt'); const n = PEDIDOS.filter(p => p.estado === 'listo').length; if (c) { c.textContent = n; c.hidden = !n; } }
     return;
   }
+  if (vista === 'cierre' && !nuevos.length) { if (cambio && CIERRE.fecha === hoyMadrid() && !document.querySelector('#fcierre:focus')) vistaPanel(); return; }
   if (nuevos.length && modo) { vista = 'pedidos'; colMovil = 'nuevo'; menuAbierto = null; }
   if (vista === 'pedidos' && (nuevos.length || cambio) && !menuAbierto && !document.querySelector('#bus:focus')) vistaPanel();
 }
@@ -935,6 +944,55 @@ function vistaMostradorHecho() {
   $('imp').onclick = () => imprimir(p);
   $('otro').onclick = () => { MOST = { lineas: [], nombre: '', metodo: '', cat: MOST.cat, hecho: null }; vistaPanel(); };
   $('ir').onclick = () => { vista = 'pedidos'; colMovil = 'nuevo'; vistaPanel(); window.scrollTo(0, 0); };
+}
+
+/* ---------- Cierre del día: total cobrado por la web, para cuadrar con "Web / Online" de la caja ---------- */
+let CIERRE = { fecha: null, datos: null };
+const numP = c => parseInt(String(c || '').replace(/\D/g, ''), 10) || 0;
+async function vistaCierre() {
+  if (!CIERRE.fecha) CIERRE.fecha = hoyMadrid();
+  const esHoy = CIERRE.fecha === hoyMadrid();
+  let lista = esHoy ? PEDIDOS : CIERRE.datos;
+  if (!esHoy && !lista) {
+    app.innerHTML = `${cabecera()}<main><p class="sub" style="text-align:center">Cargando…</p></main>`;
+    conectarCabecera();
+    const { data, error } = await sb.from('pedidos').select('id,codigo,origen,estado,cliente_nombre,total,pagado,creado_en')
+      .eq('negocio_id', N.id).eq('fecha', CIERRE.fecha).neq('estado', 'pendiente_pago').order('creado_en', { ascending: true });
+    if (vista !== 'cierre') return;
+    if (error) { CIERRE.fecha = hoyMadrid(); aviso('No se pudo cargar ese día. Revisa la conexión.'); return vistaCierre(); }
+    CIERRE.datos = lista = data || [];
+  }
+  const web = (lista || []).filter(p => p.origen !== 'mostrador');
+  const cobrados = web.filter(p => p.pagado && p.estado !== 'cancelado').sort((a, b) => numP(a.codigo) - numP(b.codigo));
+  const cancelados = web.filter(p => p.pagado && p.estado === 'cancelado');
+  const sinPagar = web.filter(p => !p.pagado && p.estado !== 'cancelado');
+  const total = cobrados.reduce((a, p) => a + Number(p.total), 0);
+  const fechaTxt = new Date(CIERRE.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  app.innerHTML = `${cabecera()}
+  <main>
+    <section class="tarjeta" aria-labelledby="tc">
+      <h2 id="tc">Cierre del día</h2>
+      <label class="sub" for="fcierre">Día</label>
+      <input type="date" id="fcierre" value="${CIERRE.fecha}" max="${hoyMadrid()}" style="height:44px;border:1px solid var(--borde);border-radius:10px;padding:0 12px">
+      <p class="sub">${esc(fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1))}${esHoy ? ' · hoy (se actualiza solo)' : ''}</p>
+      <div class="cierre-num"><div><small>Cobrado por la web</small><b>${eur(total)}</b></div><div><small>Pedidos web pagados</small><b>${cobrados.length}</b></div></div>
+      <p class="cuadre">Compáralo con la forma de pago <b>«Web / Online»</b> del cierre de la caja. Tiene que dar <b>${eur(total)}</b>. Si no coincide, busca en la lista qué número falta en la caja.</p>
+      ${cobrados.length ? `<div class="cierre-lista">${cobrados.map(p => `<div><span><b>${esc(p.codigo)}</b> · ${hora(p.creado_en)} · ${esc(p.cliente_nombre || 'Online')}${p.estado !== 'entregado' ? '<em>sin entregar</em>' : ''}</span><span>${eur(p.total)}</span></div>`).join('')}</div>` : '<p class="sub">No hay pedidos web pagados este día.</p>'}
+      ${cancelados.length ? `<p class="sub">Cancelados después de pagar: <b>${cancelados.length}</b> (${cancelados.map(p => esc(p.codigo)).join(', ')}). No suman. Comprueba que se devolvió el dinero.</p>` : ''}
+      ${sinPagar.length ? `<p class="sub">Pedidos ${N.modo_prueba ? 'de prueba' : 'sin pagar'}: ${sinPagar.length}. No suman.</p>` : ''}
+      <button class="btn claro" id="impCierre">Imprimir cierre</button>
+    </section>
+  </main>`;
+  conectarCabecera();
+  $('fcierre').onchange = e => { const f = e.target.value; if (!f || f > hoyMadrid()) return; CIERRE = { fecha: f, datos: null }; vistaCierre(); };
+  $('impCierre').onclick = () => {
+    $('print').innerHTML = `<p class="c"><b>${esc(N.nombre)}</b></p><p class="c">Cierre web · ${esc(fechaTxt)}</p><hr>
+      <ul>${cobrados.map(p => `<li><b>${esc(p.codigo)}</b> ${hora(p.creado_en)} — ${eur(p.total)}</li>`).join('')}</ul><hr>
+      <p><b>Total web: ${eur(total)}</b> (${cobrados.length} pedidos)</p>
+      ${cancelados.length ? `<p>Cancelados (no suman): ${cancelados.map(p => esc(p.codigo)).join(', ')}</p>` : ''}
+      <p class="c" style="margin-top:6px">Comparar con «Web / Online» de la caja</p>`;
+    window.print();
+  };
 }
 // Ticket de 80 mm con el número grande (para la bolsa o el cliente)
 function imprimir(p) {
